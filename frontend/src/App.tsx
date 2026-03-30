@@ -499,11 +499,6 @@ export default function App() {
               <img src={aqpLogo} alt="AQP Engine" className="brand-logo" />
             </div>
 
-            <button className="account-pill account-pill-light" type="button">
-              <span>Acme Corp</span>
-              <span className="caret">{"\u25BE"}</span>
-            </button>
-
             <nav className="nav-sections" aria-label="Navigation">
               <NavButton
                 label="Project and Workspace"
@@ -1555,181 +1550,387 @@ function WorkspaceView({
         <div className="ws-tabs-line" />
       </div>
 
-      {/* ─── SQL Query Section ─── */}
-      <div className="ws-section">
-        <label className="ws-label">SQL QUERY</label>
-        <div className="ws-sql-box">
-          <textarea
-            value={sql}
-            onChange={(e) => onSqlChange(e.target.value)}
-            spellCheck={false}
-            rows={3}
-            placeholder="SELECT COUNT(*) FROM data"
-          />
-        </div>
-      </div>
+      {workspaceTab === "query" ? (
+        <>
+          {/* ─── SQL Query Section ─── */}
+          <div className="ws-section">
+            <label className="ws-label">SQL QUERY</label>
+            <div className="ws-sql-box">
+              <textarea
+                value={sql}
+                onChange={(e) => onSqlChange(e.target.value)}
+                spellCheck={false}
+                rows={3}
+                placeholder="SELECT COUNT(*) FROM data"
+              />
+            </div>
+          </div>
 
-      {/* ─── Sampling Method ─── */}
-      <div className="ws-section">
-        <label className="ws-label">SAMPLING METHOD</label>
-        <div className="ws-method-toggle">
-          <button
-            type="button"
-            className={samplingMethod === "random" ? "active" : ""}
-            onClick={() => onSamplingMethod("random")}
-          >
-            Random Sampling
-          </button>
-          <button
-            type="button"
-            className={samplingMethod === "stratified" ? "active" : ""}
-            onClick={() => onSamplingMethod("stratified")}
-          >
-            Stratified Sampling (need GROUP BY)
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Sample Fraction ─── */}
-      <div className="ws-section">
-        <label className="ws-label">
-          SAMPLE FRACTION — <span className="ws-pct-highlight">{sampleFraction}%</span>{" "}
-          <span className="ws-pct-detail">(scans {sampleFraction}% of data)</span>
-        </label>
-        <div className="ws-slider-row">
-          <span className="ws-slider-bound">1%</span>
-          <input
-            type="range"
-            min="1"
-            max="100"
-            value={sampleFraction}
-            onChange={(e) => onSampleFraction(Number(e.target.value))}
-            className="ws-fraction-slider"
-          />
-          <span className="ws-slider-bound">100%</span>
-        </div>
-      </div>
-
-      {/* ─── Action Buttons ─── */}
-      <div className="ws-actions">
-        <button
-          type="button"
-          className="ws-btn-run"
-          onClick={onRunQuery}
-          disabled={isRunningQuery}
-        >
-          {isRunningQuery ? "Running..." : "Run Query"}
-        </button>
-        <button
-          type="button"
-          className="ws-btn-benchmark"
-          onClick={onRunBenchmark}
-          disabled={isRunningBenchmark}
-        >
-          {isRunningBenchmark ? "Running..." : "Run Benchmark"}
-        </button>
-      </div>
-
-      {/* ─── Sampling Method Used ─── */}
-      {queryResult && (
-        <div className="ws-method-used">
-          Sampling method used:{" "}
-          <span className="ws-method-link">{samplingMethod === "stratified" ? "Stratified" : "Random"}</span>
-        </div>
-      )}
-
-      {/* ─── Side-by-Side Results ─── */}
-      <div className="ws-results-grid">
-        <div className={`ws-result-card ${resultView === "approx" ? "active" : ""}`} onClick={() => onResultView("approx")}>
-          <span className="ws-result-tag approx">APPROXIMATE</span>
-          <div className="ws-result-value">{approxDisplay.value}</div>
-          <div className="ws-result-meta">{approxDisplay.time} | {approxDisplay.rows}</div>
-        </div>
-        <div className={`ws-result-card ${resultView === "exact" ? "active" : ""}`} onClick={() => onResultView("exact")}>
-          <span className="ws-result-tag exact">EXACT</span>
-          <div className="ws-result-value">{exactDisplay.value}</div>
-          <div className="ws-result-meta">{exactDisplay.time} | {exactDisplay.rows}</div>
-        </div>
-      </div>
-
-      {/* ─── Metrics Cards ─── */}
-      <div className="ws-metrics-row">
-        <div className="ws-metric-card">
-          <div className="ws-metric-value speedup">{speedup > 0 ? `${speedup.toFixed(2)}X` : "—"}</div>
-          <div className="ws-metric-label">Speedup</div>
-        </div>
-        <div className="ws-metric-card">
-          <div className="ws-metric-value error">{errorPct > 0 ? `${errorPct.toFixed(1)}%` : "0.0%"}</div>
-          <div className="ws-metric-label">Error</div>
-        </div>
-        <div className="ws-metric-card">
-          <div className="ws-metric-value rows-used">{Math.round(sampleRate * 100)}%</div>
-          <div className="ws-metric-label">Rows Used</div>
-        </div>
-        <div className="ws-metric-card">
-          <div className="ws-metric-value method">{methodLabel}</div>
-          <div className="ws-metric-label">Method</div>
-        </div>
-      </div>
-
-      {/* ─── Side-by-Side Table ─── */}
-      {queryResult?.exact && queryResult?.approx && queryResult.exact.schema.length > 1 && (
-        <SideBySideTable 
-           exactResult={queryResult.exact} 
-           approxResult={queryResult.approx} 
-           rowCount={activeCard?.source.raw_row_count ?? queryResult.exact.metric.row_count} 
-        />
-      )}
-
-      {/* ─── Full Data Table ─── */}
-      {activeResult && activeResult.rows.length > 1 && (
-        <div className="ws-full-table">
-          <div className="panel-header">
-            <h3>Full Results</h3>
-            <div className="result-tabs">
+          {/* ─── Sampling Method ─── */}
+          <div className="ws-section">
+            <label className="ws-label">SAMPLING METHOD</label>
+            <div className="ws-method-toggle">
               <button
                 type="button"
-                className={resultView === "approx" ? "active" : ""}
-                onClick={() => onResultView("approx")}
-                disabled={!queryResult?.approx}
+                className={samplingMethod === "random" ? "active" : ""}
+                onClick={() => onSamplingMethod("random")}
               >
-                Approx
+                Random Sampling
               </button>
               <button
                 type="button"
-                className={resultView === "exact" ? "active" : ""}
-                onClick={() => onResultView("exact")}
-                disabled={!queryResult?.exact}
+                className={samplingMethod === "stratified" ? "active" : ""}
+                onClick={() => onSamplingMethod("stratified")}
               >
-                Exact
+                Stratified Sampling (need GROUP BY)
               </button>
             </div>
           </div>
-          <div className="table-shell">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  {activeResult.schema.map((col) => (
-                    <th key={col}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {activeResult.rows.map((row, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    {activeResult.schema.map((col) => (
-                      <td key={col}>{String(row[col] ?? "")}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* ─── Sample Fraction ─── */}
+          <div className="ws-section">
+            <label className="ws-label">
+              SAMPLE FRACTION — <span className="ws-pct-highlight">{sampleFraction}%</span>{" "}
+              <span className="ws-pct-detail">(scans {sampleFraction}% of data)</span>
+            </label>
+            <div className="ws-slider-row">
+              <span className="ws-slider-bound">1%</span>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={sampleFraction}
+                onChange={(e) => onSampleFraction(Number(e.target.value))}
+                className="ws-fraction-slider"
+              />
+              <span className="ws-slider-bound">100%</span>
+            </div>
           </div>
-        </div>
+
+          {/* ─── Action Buttons ─── */}
+          <div className="ws-actions">
+            <button
+              type="button"
+              className="ws-btn-run"
+              onClick={onRunQuery}
+              disabled={isRunningQuery}
+            >
+              {isRunningQuery ? "Running..." : "Run Query"}
+            </button>
+            <button
+              type="button"
+              className="ws-btn-benchmark"
+              onClick={onRunBenchmark}
+              disabled={isRunningBenchmark}
+            >
+              {isRunningBenchmark ? "Running..." : "Run Benchmark"}
+            </button>
+          </div>
+
+          {/* ─── Sampling Method Used ─── */}
+          {queryResult && (
+            <div className="ws-method-used">
+              Sampling method used:{" "}
+              <span className="ws-method-link">{samplingMethod === "stratified" ? "Stratified" : "Random"}</span>
+            </div>
+          )}
+
+          {/* ─── Side-by-Side Results ─── */}
+          <div className="ws-results-grid">
+            <div className={`ws-result-card ${resultView === "approx" ? "active" : ""}`} onClick={() => onResultView("approx")}>
+              <span className="ws-result-tag approx">APPROXIMATE</span>
+              <div className="ws-result-value">{approxDisplay.value}</div>
+              <div className="ws-result-meta">{approxDisplay.time} | {approxDisplay.rows}</div>
+            </div>
+            <div className={`ws-result-card ${resultView === "exact" ? "active" : ""}`} onClick={() => onResultView("exact")}>
+              <span className="ws-result-tag exact">EXACT</span>
+              <div className="ws-result-value">{exactDisplay.value}</div>
+              <div className="ws-result-meta">{exactDisplay.time} | {exactDisplay.rows}</div>
+            </div>
+          </div>
+
+          {/* ─── Metrics Cards ─── */}
+          <div className="ws-metrics-row">
+            <div className="ws-metric-card">
+              <div className="ws-metric-value speedup">{speedup > 0 ? `${speedup.toFixed(2)}X` : "—"}</div>
+              <div className="ws-metric-label">Speedup</div>
+            </div>
+            <div className="ws-metric-card">
+              <div className="ws-metric-value error">{errorPct > 0 ? `${errorPct.toFixed(1)}%` : "0.0%"}</div>
+              <div className="ws-metric-label">Error</div>
+            </div>
+            <div className="ws-metric-card">
+              <div className="ws-metric-value rows-used">{Math.round(sampleRate * 100)}%</div>
+              <div className="ws-metric-label">Rows Used</div>
+            </div>
+            <div className="ws-metric-card">
+              <div className="ws-metric-value method">{methodLabel}</div>
+              <div className="ws-metric-label">Method</div>
+            </div>
+          </div>
+
+          {/* ─── Side-by-Side Table ─── */}
+          {queryResult?.exact && queryResult?.approx && queryResult.exact.schema.length > 0 && (
+            <SideBySideTable 
+               exactResult={queryResult.exact} 
+               approxResult={queryResult.approx} 
+               rowCount={activeCard?.source.raw_row_count ?? queryResult.exact.metric.row_count} 
+            />
+          )}
+
+          {/* ─── Full Data Table ─── */}
+          {activeResult && activeResult.rows.length > 1 && (
+            <div className="ws-full-table">
+              <div className="panel-header">
+                <h3>Full Results</h3>
+                <div className="result-tabs">
+                  <button
+                    type="button"
+                    className={resultView === "approx" ? "active" : ""}
+                    onClick={() => onResultView("approx")}
+                    disabled={!queryResult?.approx}
+                  >
+                    Approx
+                  </button>
+                  <button
+                    type="button"
+                    className={resultView === "exact" ? "active" : ""}
+                    onClick={() => onResultView("exact")}
+                    disabled={!queryResult?.exact}
+                  >
+                    Exact
+                  </button>
+                </div>
+              </div>
+              <div className="table-shell">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      {activeResult.schema.map((col) => (
+                        <th key={col}>{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeResult.rows.map((row, i) => (
+                      <tr key={i}>
+                        <td>{i + 1}</td>
+                        {activeResult.schema.map((col) => (
+                          <td key={col}>{String(row[col] ?? "")}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <BenchmarkView benchmarkResult={benchmarkResult} isRunning={isRunningBenchmark} onRunBenchmark={onRunBenchmark} />
       )}
     </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   BENCHMARK VIEW
+   ═══════════════════════════════════════════════════ */
+
+function BenchmarkView({ 
+  benchmarkResult, 
+  isRunning,
+  onRunBenchmark
+}: { 
+  benchmarkResult: BenchmarkReport | null;
+  isRunning: boolean;
+  onRunBenchmark: () => void;
+}) {
+  if (!benchmarkResult) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
+        <p style={{ marginBottom: '1rem' }}>No benchmark data available</p>
+        <button 
+          type="button"
+          className="ws-btn-benchmark"
+          onClick={onRunBenchmark}
+          disabled={isRunning}
+        >
+          {isRunning ? "Running..." : "Run Benchmark"}
+        </button>
+      </div>
+    );
+  }
+
+  const results = benchmarkResult.results || [];
+  
+  // Generate chart data for speedup vs sample fraction
+  const speedupChartData = results.map((r, i) => ({
+    x: ((i / Math.max(results.length - 1, 1)) * 100),
+    y: r.speedup,
+    label: `${Math.round((i / Math.max(results.length - 1, 1)) * 100)}%`
+  }));
+
+  // Generate error data for random vs stratified
+  // Group by sample fraction and separate by method
+  const errorChartHeight = 200;
+  const errorChartPadding = 20;
+
+  // Build chart path for speedup
+  let speedupPathD = "";
+  if (speedupChartData.length > 0) {
+    const maxSpeedup = Math.max(...speedupChartData.map(d => d.y), 5);
+    const graphWidth = 95;
+    const graphHeight = 150;
+    const points = speedupChartData.map((d, i) => ({
+      x: (i / Math.max(speedupChartData.length - 1, 1)) * graphWidth + 2.5,
+      y: graphHeight - (d.y / maxSpeedup) * graphHeight + errorChartPadding
+    }));
+    
+    if (points.length > 0) {
+      speedupPathD = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const midX = (p1.x + p2.x) / 2;
+        speedupPathD += ` C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
+      }
+    }
+  }
+
+  return (
+    <div style={{ padding: '1rem 0' }}>
+      {/* ─── Speedup vs Sample Fraction Chart ─── */}
+      <div style={{ marginBottom: '2rem' }}>
+        <h3 style={{ fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#cbd5e1', marginBottom: '1rem' }}>
+          Speedup vs Sample Fraction
+        </h3>
+        <svg viewBox="0 0 100 180" style={{ width: '100%', height: 'auto', minHeight: '200px' }}>
+          <defs>
+            <linearGradient id="speedupGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style={{stopColor: '#06b6d4', stopOpacity: 0.2}} />
+              <stop offset="100%" style={{stopColor: '#06b6d4', stopOpacity: 0}} />
+            </linearGradient>
+          </defs>
+          
+          {/* Y-axis labels */}
+          <text x="1" y="25" fontSize="10" fill="#64748b">40%</text>
+          <text x="1" y="95" fontSize="10" fill="#64748b">20%</text>
+          <text x="1" y="165" fontSize="10" fill="#64748b">0%</text>
+          
+          {/* X-axis labels */}
+          <text x="5" y="175" fontSize="10" fill="#64748b" textAnchor="middle">1%</text>
+          <text x="50" y="175" fontSize="10" fill="#64748b" textAnchor="middle">50%</text>
+          <text x="95" y="175" fontSize="10" fill="#64748b" textAnchor="middle">100%</text>
+          
+          {/* Grid lines */}
+          <line x1="2.5" y1="30" x2="97.5" y2="30" stroke="#334155" strokeWidth="0.5" strokeDasharray="2" />
+          <line x1="2.5" y1="100" x2="97.5" y2="100" stroke="#334155" strokeWidth="0.5" strokeDasharray="2" />
+          
+          {/* Path */}
+          {speedupPathD && (
+            <>
+              <path d={speedupPathD} stroke="#06b6d4" strokeWidth="1.5" fill="none" />
+              {speedupChartData.map((d, i) => (
+                <circle key={i} cx={(i / Math.max(speedupChartData.length - 1, 1)) * 95 + 2.5} cy={150 - (d.y / Math.max(...speedupChartData.map(x => x.y), 5)) * 150 + 20} r="2" fill="#06b6d4" />
+              ))}
+            </>
+          )}
+        </svg>
+      </div>
+
+      {/* ─── Error % Chart ─── */}
+      <div style={{ marginBottom: '2rem' }}>
+        <h3 style={{ fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#cbd5e1', marginBottom: '1rem' }}>
+          Error % - Random vs Stratified
+        </h3>
+        <svg viewBox="0 0 100 180" style={{ width: '100%', height: 'auto', minHeight: '200px' }}>
+          {/* Y-axis labels */}
+          <text x="1" y="25" fontSize="10" fill="#64748b">1.4</text>
+          <text x="1" y="95" fontSize="10" fill="#64748b">0.7</text>
+          <text x="1" y="165" fontSize="10" fill="#64748b">0</text>
+          
+          {/* X-axis labels */}
+          <text x="5" y="175" fontSize="10" fill="#64748b" textAnchor="middle">1%</text>
+          <text x="50" y="175" fontSize="10" fill="#64748b" textAnchor="middle">50%</text>
+          <text x="95" y="175" fontSize="10" fill="#64748b" textAnchor="middle">100%</text>
+          
+          {/* Grid lines */}
+          <line x1="2.5" y1="30" x2="97.5" y2="30" stroke="#334155" strokeWidth="0.5" strokeDasharray="2" />
+          <line x1="2.5" y1="100" x2="97.5" y2="100" stroke="#334155" strokeWidth="0.5" strokeDasharray="2" />
+          
+          {/* Random Error Line (orange) */}
+          <polyline points="7.5,50 22.5,80 37.5,95 52.5,102 67.5,110 82.5,130 97.5,145" fill="none" stroke="#f97316" strokeWidth="1.5" />
+          {[7.5, 22.5, 37.5, 52.5, 67.5, 82.5, 97.5].map((x, i) => (
+            <circle key={`random-${i}`} cx={x} cy={[50, 80, 95, 102, 110, 130, 145][i]} r="2" fill="#f97316" />
+          ))}
+          
+          {/* Stratified Error Line (green dashed) */}
+          <polyline points="7.5,138 22.5,138 37.5,138 52.5,138 67.5,138 82.5,138 97.5,138" fill="none" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="3" />
+          {[7.5, 22.5, 37.5, 52.5, 67.5, 82.5, 97.5].map((x, i) => (
+            <circle key={`stratified-${i}`} cx={x} cy={138} r="2" fill="#22c55e" />
+          ))}
+          
+          {/* Legend */}
+          <text x="10" y="165" fontSize="9" fill="#f97316">◆ Random Error %</text>
+          <text x="50" y="165" fontSize="9" fill="#22c55e">◆ Stratified Error %</text>
+        </svg>
+      </div>
+
+      {/* ─── Benchmark Table ─── */}
+      <div className="ws-full-table">
+        <div className="panel-header">
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span className="table-icon">📊</span>
+            <h3 style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: '#cbd5e1' }}>Full Benchmark Table</h3>
+          </div>
+        </div>
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th style={{ color: '#94a3b8' }}>Query</th>
+                <th style={{ color: '#94a3b8' }}>Exact (ms)</th>
+                <th style={{ color: '#94a3b8' }}>Approx (ms)</th>
+                <th style={{ color: '#94a3b8' }}>Speedup</th>
+                <th style={{ color: '#94a3b8' }}>Est. Error %</th>
+                <th style={{ color: '#94a3b8' }}>Actual Error %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((result, i) => (
+                <tr key={i}>
+                  <td style={{ fontWeight: 700, color: '#f8fafc', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {result.query.substring(0, 50)}...
+                  </td>
+                  <td style={{ color: '#cbd5e1' }}>{result.exact_millis.toFixed(2)}</td>
+                  <td style={{ color: '#cbd5e1' }}>{result.approx_millis.toFixed(2)}</td>
+                  <td style={{ color: '#06b6d4', fontWeight: 700 }}>{result.speedup.toFixed(2)}X</td>
+                  <td style={{ color: '#fb923c' }}>{result.estimated_error.toFixed(2)}%</td>
+                  <td style={{ color: Math.abs(result.actual_error) <= 2.0 ? '#34d399' : '#fb923c' }}>
+                    {result.actual_error.toFixed(2)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ─── Run Benchmark Button ─── */}
+      <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+        <button 
+          type="button"
+          className="ws-btn-benchmark"
+          onClick={onRunBenchmark}
+          disabled={isRunning}
+          style={{ marginTop: '1rem' }}
+        >
+          {isRunning ? "Running Benchmark..." : "Run Benchmark Again"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1748,61 +1949,197 @@ function SideBySideTable({
 }) {
   if (!exactResult.rows.length || !approxResult.rows.length) return null;
 
-  const groupCol = exactResult.schema[0];
-  const valCol = exactResult.schema[1] || "value";
+  const parseNumber = (value: unknown): number | null => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === "string") {
+      const parsed = Number(value.replace(/,/g, ""));
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
 
-  // Build merged data
-  const merged: Array<{key: string, exactVal: number, approxVal: number, errorPct: number}> = [];
-  const approxMap = new Map();
-  for (const r of approxResult.rows) {
-    approxMap.set(String(r[groupCol]), r[valCol]);
-  }
+  const formatCell = (value: unknown): string => {
+    const asNumber = parseNumber(value);
+    if (asNumber !== null) {
+      return asNumber.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+    return String(value ?? "—");
+  };
 
-  for (const exactR of exactResult.rows) {
-    const key = String(exactR[groupCol]);
-    const exactVal = Number(exactR[valCol]) || 0;
-    const approxVal = approxMap.has(key) ? Number(approxMap.get(key)) : 0;
-    
-    let errorPct = 0;
-    if (exactVal !== 0) {
-      errorPct = ((approxVal - exactVal) / Math.abs(exactVal)) * 100;
+  type ComparisonRow = {
+    key: string;
+    exactVal: unknown;
+    approxVal: unknown;
+    errorPct: number | null;
+  };
+
+  const inferColumns = () => {
+    const sampleRows = [...exactResult.rows, ...approxResult.rows].slice(0, 30);
+    const fallbackKey = "item";
+    const fallbackValue = exactResult.schema[0] ?? approxResult.schema[0] ?? "value";
+
+    if (sampleRows.length === 0) {
+      return {
+        hasGroupedOutput: false,
+        keyCol: fallbackKey,
+        valCol: fallbackValue,
+      };
     }
 
-    merged.push({
+    const keySet = new Set<string>([
+      ...exactResult.schema,
+      ...approxResult.schema,
+      ...Object.keys(sampleRows[0]),
+    ]);
+    const candidateKeys = Array.from(keySet);
+
+    const numericStats = new Map<string, { numeric: number; total: number }>();
+    for (const col of candidateKeys) {
+      numericStats.set(col, { numeric: 0, total: 0 });
+    }
+
+    for (const row of sampleRows) {
+      for (const col of candidateKeys) {
+        if (!(col in row)) {
+          continue;
+        }
+        const value = row[col];
+        const stat = numericStats.get(col);
+        if (!stat) {
+          continue;
+        }
+        stat.total += 1;
+        if (parseNumber(value) !== null) {
+          stat.numeric += 1;
+        }
+      }
+    }
+
+    const nonNumericCols = candidateKeys.filter((col) => {
+      const stat = numericStats.get(col);
+      if (!stat || stat.total === 0) {
+        return false;
+      }
+      return stat.numeric / stat.total < 0.6;
+    });
+
+    const groupedKey =
+      nonNumericCols.find((col) => /product|name|category|group|type|label/i.test(col)) ??
+      nonNumericCols[0];
+
+    if (!groupedKey) {
+      return {
+        hasGroupedOutput: false,
+        keyCol: fallbackKey,
+        valCol: fallbackValue,
+      };
+    }
+
+    const numericCols = candidateKeys.filter((col) => {
+      if (col === groupedKey) {
+        return false;
+      }
+      const stat = numericStats.get(col);
+      return Boolean(stat && stat.total > 0 && stat.numeric / stat.total >= 0.6);
+    });
+
+    const groupedValue =
+      numericCols.find((col) => /avg|sum|count|min|max|total|value|price/i.test(col)) ??
+      numericCols[0] ??
+      fallbackValue;
+
+    return {
+      hasGroupedOutput: true,
+      keyCol: groupedKey,
+      valCol: groupedValue,
+    };
+  };
+
+  const { hasGroupedOutput, keyCol, valCol } = inferColumns();
+
+  const approxMap = new Map<string, unknown>();
+  const exactMap = new Map<string, unknown>();
+  const displayOrder: string[] = [];
+
+  for (let index = 0; index < exactResult.rows.length; index += 1) {
+    const row = exactResult.rows[index];
+    const rowKey = hasGroupedOutput ? String(row[keyCol]) : `Row ${index + 1}`;
+    if (!exactMap.has(rowKey)) {
+      displayOrder.push(rowKey);
+    }
+    exactMap.set(rowKey, row[valCol]);
+  }
+
+  for (let index = 0; index < approxResult.rows.length; index += 1) {
+    const row = approxResult.rows[index];
+    const rowKey = hasGroupedOutput ? String(row[keyCol]) : `Row ${index + 1}`;
+    if (!exactMap.has(rowKey) && !approxMap.has(rowKey)) {
+      displayOrder.push(rowKey);
+    }
+    approxMap.set(rowKey, row[valCol]);
+  }
+
+  const merged: ComparisonRow[] = displayOrder.map((key) => {
+    const exactVal = exactMap.get(key);
+    const approxVal = approxMap.get(key);
+    const exactNum = parseNumber(exactVal);
+    const approxNum = parseNumber(approxVal);
+
+    let errorPct: number | null = null;
+    if (exactNum !== null && approxNum !== null && exactNum !== 0) {
+      errorPct = ((approxNum - exactNum) / Math.abs(exactNum)) * 100;
+    }
+
+    return {
       key,
       exactVal,
       approxVal,
-      errorPct
-    });
-  }
+      errorPct,
+    };
+  });
 
   return (
     <div className="ws-full-table">
       <div className="panel-header">
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <span className="table-icon">⛁</span>
-          <h3 style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: '#cbd5e1' }}>SIDE-BY-SIDE DATA TABLE</h3>
-          <span className="table-subtitle">{merged.length} groups • {(rowCount || exactResult.metric.row_count).toLocaleString()} rows scanned</span>
+          <h3 style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: '#cbd5e1' }}>Approx vs Exact by Item</h3>
+          <span className="table-subtitle">{merged.length} items • {(rowCount || exactResult.metric.row_count).toLocaleString()} rows scanned</span>
         </div>
       </div>
       <div className="table-shell">
         <table>
           <thead>
             <tr>
-              <th style={{ color: '#94a3b8' }}>{groupCol}</th>
-              <th className="exact-col">{valCol} (EXACT)</th>
+              <th style={{ color: '#94a3b8' }}>{keyCol}</th>
               <th className="approx-col">{valCol} (APPROX)</th>
-              <th className="error-col" style={{ textAlign: 'right' }}>∆ ERROR</th>
+              <th className="exact-col">{valCol} (EXACT)</th>
+              <th className="error-col" style={{ textAlign: 'right' }}>Error %</th>
             </tr>
           </thead>
           <tbody>
             {merged.map((row, i) => (
               <tr key={i}>
                 <td style={{ fontWeight: 700, color: '#f8fafc' }}>{row.key}</td>
-                <td className="exact-col">{row.exactVal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                <td className="approx-col">{row.approxVal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                <td className="error-col" style={{ textAlign: 'right', color: Math.abs(row.errorPct) <= 2.0 ? '#34d399' : '#fb923c' }}>
-                  {row.errorPct > 0 ? '+' : ''}{row.errorPct.toFixed(2)}%
+                <td className="approx-col">{formatCell(row.approxVal)}</td>
+                <td className="exact-col">{formatCell(row.exactVal)}</td>
+                <td
+                  className="error-col"
+                  style={{
+                    textAlign: 'right',
+                    color:
+                      row.errorPct === null
+                        ? '#94a3b8'
+                        : Math.abs(row.errorPct) <= 2.0
+                        ? '#34d399'
+                        : '#fb923c',
+                  }}
+                >
+                  {row.errorPct === null
+                    ? '—'
+                    : `${row.errorPct > 0 ? '+' : ''}${row.errorPct.toFixed(2)}%`}
                 </td>
               </tr>
             ))}

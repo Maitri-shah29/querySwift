@@ -184,7 +184,7 @@ select {
 }
 
 .sidebar-dark .brand-logo {
-  filter: brightness(0) invert(1);
+  filter: none;
 }
 
 .brand-icon {
@@ -411,8 +411,34 @@ select {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  background: linear-gradient(90deg, #121316 0%, #1a1b1e 40%, #1c1d21 100%);
+  background: #B0D3CF;
   border-top-right-radius: 20px;
+}
+
+.theme-workspace .qs-topbar {
+  background: #B0D3CF;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.24);
+}
+
+.theme-workspace .top-title {
+  color: #1f2937;
+}
+
+.theme-workspace .top-search-wrap {
+  background: #2a3039;
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.theme-workspace .top-search-wrap input {
+  color: #e2e8f0;
+}
+
+.theme-workspace .top-search-wrap input::placeholder {
+  color: #a8b3c4;
+}
+
+.theme-workspace .search-icon {
+  color: #9aa5b7;
 }
 
 .topbar-actions {
@@ -441,6 +467,12 @@ select {
   border: none;
   padding: 0 16px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.theme-workspace .dashboard-search-wrap {
+  background: #2b313a;
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .dashboard-search-wrap:focus-within {
@@ -476,6 +508,11 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.theme-workspace .dashboard-search-wrap .search-shortcut {
+  background: #d7efef;
+  color: #334155;
 }
 
 .dashboard-cta {
@@ -2576,8 +2613,8 @@ tr:hover td {
    SIDEBAR — ULTRA DARK THEME
    ═══════════════════════════════════════════════════ */
 .sidebar-dark {
-  background: linear-gradient(180deg, #121316 0%, #16171a 40%, #1a1b1e 100%) !important;
-  border-right: 1px solid #334155 !important;
+  background: #B0D3CF !important;
+  border-right: 1px solid #7da8a2 !important;
 }
 
 .sidebar-dark::after {
@@ -2601,13 +2638,13 @@ tr:hover td {
 
 /* Account pill — dark over-frame */
 .account-pill-light {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: #2a2f3a !important;
+  border-color: #475569 !important;
   color: #e2e8f0 !important;
 }
 
 .account-pill-light:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
+  background: #323846 !important;
 }
 
 .account-pill-light .caret {
@@ -2616,8 +2653,8 @@ tr:hover td {
 
 /* Nav buttons — dark sidebar */
 .sidebar-dark .nav-button {
-  color: #94a3b8;
-  font-weight: 500;
+  color: #334155;
+  font-weight: 600;
   font-family: 'JetBrains Mono', Consolas, monospace;
   font-size: 13px;
   border-radius: 8px;
@@ -2626,8 +2663,8 @@ tr:hover td {
 }
 
 .sidebar-dark .nav-button:hover {
-  background: rgba(255, 255, 255, 0.03);
-  color: #cbd5e1;
+  background: rgba(59, 130, 246, 0.1);
+  color: #1e3a8a;
   transform: none;
 }
 
@@ -2647,7 +2684,7 @@ tr:hover td {
 
 /* Nav heading */
 .nav-heading-light {
-  color: #64748b !important;
+  color: #2e6fc9 !important;
   opacity: 1 !important;
   font-weight: 700 !important;
   font-family: 'JetBrains Mono', Consolas, monospace;

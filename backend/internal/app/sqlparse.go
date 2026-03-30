@@ -124,8 +124,9 @@ func ParseAnalyticalSQL(sql string) (*ParsedQuery, error) {
 }
 
 func BuildExactSQL(parsed *ParsedQuery, table string) string {
-	parts := make([]string, 0, len(parsed.Selects))
-	for _, sel := range parsed.Selects {
+	selects := ensureGroupSelects(parsed)
+	parts := make([]string, 0, len(selects))
+	for _, sel := range selects {
 		switch sel.Kind {
 		case "group":
 			parts = append(parts, fmt.Sprintf("%s AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
@@ -152,8 +153,9 @@ func BuildExactSQL(parsed *ParsedQuery, table string) string {
 }
 
 func BuildApproxSQL(parsed *ParsedQuery, table string) string {
-	parts := make([]string, 0, len(parsed.Selects))
-	for _, sel := range parsed.Selects {
+	selects := ensureGroupSelects(parsed)
+	parts := make([]string, 0, len(selects))
+	for _, sel := range selects {
 		switch sel.Kind {
 		case "group":
 			parts = append(parts, fmt.Sprintf("%s AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
@@ -180,8 +182,9 @@ func BuildApproxSQL(parsed *ParsedQuery, table string) string {
 }
 
 func BuildHLLSQL(parsed *ParsedQuery, table string) string {
-	parts := make([]string, 0, len(parsed.Selects))
-	for _, sel := range parsed.Selects {
+	selects := ensureGroupSelects(parsed)
+	parts := make([]string, 0, len(selects))
+	for _, sel := range selects {
 		switch sel.Kind {
 		case "group":
 			parts = append(parts, fmt.Sprintf("%s AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
@@ -260,6 +263,31 @@ func quoteExternalIdent(s string) string {
 		return `""`
 	}
 	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+}
+
+func ensureGroupSelects(parsed *ParsedQuery) []SelectExpr {
+	if len(parsed.GroupBy) == 0 {
+		return parsed.Selects
+	}
+
+	seen := make(map[string]bool, len(parsed.Selects))
+	selects := make([]SelectExpr, 0, len(parsed.Selects)+len(parsed.GroupBy))
+
+	for _, sel := range parsed.Selects {
+		selects = append(selects, sel)
+		if sel.Kind == "group" {
+			seen[sel.Column] = true
+		}
+	}
+
+	for _, groupCol := range parsed.GroupBy {
+		if seen[groupCol] {
+			continue
+		}
+		selects = append(selects, SelectExpr{Kind: "group", Column: groupCol, Alias: groupCol})
+	}
+
+	return selects
 }
 
 func safeIdent(s string) string {
