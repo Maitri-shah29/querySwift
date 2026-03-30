@@ -58,6 +58,66 @@ func TestBuildApproxSQL(t *testing.T) {
 	}
 }
 
+func TestBuildApproxSQLUsesHLLForDistinct(t *testing.T) {
+	parsed, err := ParseAnalyticalSQL(`SELECT COUNT(DISTINCT user_id) AS unique_users FROM sales`)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	sql := BuildApproxSQL(parsed, "sales_sample")
+	if !strings.Contains(sql, `approx_count_distinct("user_id") AS "unique_users"`) {
+		t.Fatalf("expected HLL distinct in approximate SQL, got: %s", sql)
+	}
+}
+
+func TestBuildApproxSQLDistinctWithOtherAggregates(t *testing.T) {
+	parsed, err := ParseAnalyticalSQL(`SELECT region, COUNT(DISTINCT user_id) AS unique_users, SUM(revenue) AS total_revenue FROM sales GROUP BY region`)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	sql := BuildApproxSQL(parsed, "sales_sample")
+	if !strings.Contains(sql, `approx_count_distinct("user_id") AS "unique_users"`) {
+		t.Fatalf("expected HLL distinct in mixed aggregate SQL, got: %s", sql)
+	}
+	if !strings.Contains(sql, `SUM("revenue" * __aqe_weight) AS "total_revenue"`) {
+		t.Fatalf("expected normal weighted SUM in mixed aggregate SQL, got: %s", sql)
+	}
+}
+
+func TestBuildApproxStratifiedSQLForGroupBy(t *testing.T) {
+	parsed, err := ParseAnalyticalSQL(`SELECT region, SUM(revenue) AS total_revenue, COUNT(*) AS total_rows FROM sales GROUP BY region`)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	sql := BuildApproxStratifiedSQL(parsed, "sales_raw", 0.2)
+	if !strings.Contains(sql, `PARTITION BY "region"`) {
+		t.Fatalf("expected stratified partition clause, got: %s", sql)
+	}
+	if !strings.Contains(sql, `FROM "sales_raw"`) {
+		t.Fatalf("expected stratified query to sample from raw table, got: %s", sql)
+	}
+	if !strings.Contains(sql, `SUM(__aqe_weight) AS "total_rows"`) {
+		t.Fatalf("expected weighted count expression, got: %s", sql)
+	}
+}
+
+func TestBuildApproxStratifiedSQLUsesHLLForDistinct(t *testing.T) {
+	parsed, err := ParseAnalyticalSQL(`SELECT region, COUNT(DISTINCT user_id) AS unique_users, SUM(revenue) AS total_revenue FROM sales GROUP BY region`)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	sql := BuildApproxStratifiedSQL(parsed, "sales_raw", 0.2)
+	if !strings.Contains(sql, `approx_count_distinct("user_id") AS "unique_users"`) {
+		t.Fatalf("expected HLL distinct in stratified SQL, got: %s", sql)
+	}
+	if !strings.Contains(sql, `SUM("revenue" * __aqe_weight) AS "total_revenue"`) {
+		t.Fatalf("expected weighted SUM in stratified SQL, got: %s", sql)
+	}
+}
+
 func TestBuildHLLSQL(t *testing.T) {
 	parsed, err := ParseAnalyticalSQL(`SELECT region, COUNT(DISTINCT user_id) AS uu FROM sales GROUP BY region`)
 	if err != nil {
@@ -141,5 +201,22 @@ func TestNormalizeSourcePreservesPostgresIdentifiers(t *testing.T) {
 	}
 	if source.WatermarkColumn != "UpdatedAt" {
 		t.Fatalf("expected watermark column case to be preserved, got %s", source.WatermarkColumn)
+	}
+}
+
+func TestIsStratifiedForGroupBy(t *testing.T) {
+	source := &SourceConfig{
+		SamplingMethod:  SamplingMethodStratified,
+		StratifyColumns: []string{"region", "channel"},
+	}
+
+	if !isStratifiedForGroupBy(source, []string{"region"}) {
+		t.Fatal("expected stratified source to match group by subset")
+	}
+	if !isStratifiedForGroupBy(source, []string{"channel", "region"}) {
+		t.Fatal("expected stratified source to match full group by set")
+	}
+	if isStratifiedForGroupBy(source, []string{"country"}) {
+		t.Fatal("did not expect non-stratified column to match")
 	}
 }

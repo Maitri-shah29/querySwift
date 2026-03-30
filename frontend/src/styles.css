@@ -1,8 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
-/* ═══════════════════════════════════════════════════
-   DESIGN TOKENS
-   ═══════════════════════════════════════════════════ */
 :root {
   --panel-radius: 16px;
   --card-radius: 14px;
@@ -10,43 +7,34 @@
   --font-brand: "Space Grotesk", "Trebuchet MS", sans-serif;
   --font-code: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
 
-  /* Core palette */
   --bg-deep: #06080f;
   --bg-surface: #0c1021;
   --bg-elevated: #111729;
   --bg-card: rgba(17, 24, 45, 0.72);
 
-  /* Accent */
   --accent-primary: #6366f1;
   --accent-secondary: #818cf8;
   --accent-glow: rgba(99, 102, 241, 0.35);
   --accent-warm: #f59e0b;
   --accent-warm-glow: rgba(245, 158, 11, 0.3);
 
-  /* Success / Error / Info */
   --color-success: #10b981;
   --color-error: #ef4444;
   --color-info: #3b82f6;
   --color-warning: #f59e0b;
 
-  /* Text */
   --text-primary: #e8ecf4;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
 
-  /* Borders */
   --border-subtle: rgba(148, 163, 184, 0.1);
   --border-accent: rgba(99, 102, 241, 0.2);
   --border-hover: rgba(99, 102, 241, 0.4);
 
-  /* Transitions */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ═══════════════════════════════════════════════════
-   RESET & BASE
-   ═══════════════════════════════════════════════════ */
 * {
   box-sizing: border-box;
 }
@@ -71,9 +59,6 @@ select {
   font: inherit;
 }
 
-/* ═══════════════════════════════════════════════════
-   ROOT SHELL
-   ═══════════════════════════════════════════════════ */
 .qs-root {
   min-height: 100vh;
   padding: 10px;
@@ -89,7 +74,6 @@ select {
   z-index: 0;
 }
 
-/* ─── Source Theme ─── */
 .theme-sources {
   color: var(--text-primary);
   background:
@@ -99,7 +83,6 @@ select {
     linear-gradient(180deg, #06080f 0%, #0a0f1e 40%, #0c1225 100%);
 }
 
-/* ─── Workspace Theme ─── */
 .theme-workspace {
   color: var(--text-primary);
   background:
@@ -109,7 +92,6 @@ select {
     linear-gradient(180deg, #06080f 0%, #090e1c 50%, #0b1225 100%);
 }
 
-/* ─── Shell Grid ─── */
 .qs-shell {
   position: relative;
   z-index: 1;
@@ -138,9 +120,6 @@ select {
   border-color: rgba(99, 102, 241, 0.12);
 }
 
-/* ═══════════════════════════════════════════════════
-   SIDEBAR
-   ═══════════════════════════════════════════════════ */
 .qs-sidebar {
   padding: 20px 16px;
   display: flex;
@@ -169,7 +148,6 @@ select {
   background: linear-gradient(180deg, rgba(8, 12, 28, 0.95) 0%, rgba(6, 10, 24, 0.97) 100%);
 }
 
-/* ─── Brand ─── */
 .brand-row {
   display: flex;
   align-items: center;
@@ -219,7 +197,6 @@ select {
   background-clip: text;
 }
 
-/* ─── Account Pill ─── */
 .account-pill {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.1);
@@ -260,7 +237,6 @@ select {
   font-size: 10px;
 }
 
-/* ─── Navigation ─── */
 .nav-sections {
   display: grid;
   gap: 4px;
@@ -346,7 +322,6 @@ select {
   opacity: 0.8;
 }
 
-/* ─── User Panel ─── */
 .user-panel {
   display: flex;
   align-items: center;
@@ -382,9 +357,6 @@ select {
   color: var(--text-muted);
 }
 
-/* ═══════════════════════════════════════════════════
-   MAIN AREA
-   ═══════════════════════════════════════════════════ */
 .qs-main {
   display: flex;
   flex-direction: column;
@@ -392,7 +364,6 @@ select {
   background: rgba(6, 8, 15, 0.3);
 }
 
-/* ─── Top Bar ─── */
 .qs-topbar {
   border-bottom: 1px solid var(--border-subtle);
   padding: 12px 20px;
@@ -421,7 +392,6 @@ select {
   background-clip: text;
 }
 
-/* ─── Error Banner ─── */
 .inline-error {
   margin: 14px 20px 0;
   border: 1px solid rgba(239, 68, 68, 0.25);
@@ -455,7 +425,6 @@ select {
   80% { transform: translateX(2px); }
 }
 
-/* ─── Search Bar ─── */
 .top-search-wrap {
   display: flex;
   align-items: center;
@@ -494,7 +463,6 @@ select {
   color: var(--text-muted);
 }
 
-/* ─── CTA Buttons ─── */
 .cta-button {
   border: 0;
   border-radius: 10px;
@@ -542,15 +510,11 @@ select {
   box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.2);
 }
 
-/* ═══════════════════════════════════════════════════
-   SCREEN BODY (shared)
-   ═══════════════════════════════════════════════════ */
 .screen-body {
   padding: 24px 20px;
   animation: fade-in 300ms var(--ease-smooth);
 }
 
-/* ─── Section Header ─── */
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -583,7 +547,6 @@ select {
   font-size: 14px;
 }
 
-/* ─── Filters ─── */
 .filters {
   display: flex;
   gap: 8px;
@@ -613,9 +576,6 @@ select {
   color: var(--text-primary);
 }
 
-/* ═══════════════════════════════════════════════════
-   SOURCE CARDS
-   ═══════════════════════════════════════════════════ */
 .cards-grid {
   margin-top: 20px;
   display: grid;
@@ -736,7 +696,6 @@ select {
   opacity: 0.8;
 }
 
-/* ─── Source Metadata ─── */
 .source-metadata-row {
   margin-top: 14px;
   display: grid;
@@ -766,7 +725,6 @@ select {
   color: var(--text-secondary);
 }
 
-/* ─── Owner Tag ─── */
 .owner-tag {
   margin-top: 2px;
   display: flex;
@@ -786,7 +744,6 @@ select {
   font-weight: 700;
 }
 
-/* ─── Status Pill ─── */
 .status-pill {
   margin-top: 4px;
   display: inline-flex;
@@ -823,7 +780,6 @@ select {
   50% { opacity: 0.7; }
 }
 
-/* ─── Progress Bar ─── */
 .progress-wrap {
   margin-top: 12px;
   display: grid;
@@ -858,7 +814,6 @@ select {
   color: var(--accent-secondary);
 }
 
-/* ─── Card Footer ─── */
 .source-card footer {
   margin-top: 14px;
   padding-top: 12px;
@@ -900,7 +855,17 @@ select {
   transform: none;
 }
 
-/* ─── Add Card ─── */
+.ghost-action.danger {
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.ghost-action.danger:hover {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(153, 27, 27, 0.3);
+}
+
 .add-card {
   border: 1px dashed rgba(99, 102, 241, 0.2);
   border-radius: var(--card-radius);
@@ -960,9 +925,6 @@ select {
   font-weight: 500;
 }
 
-/* ═══════════════════════════════════════════════════
-   WORKSPACE
-   ═══════════════════════════════════════════════════ */
 .workspace-body {
   display: grid;
   grid-template-rows: auto auto minmax(280px, 1fr);
@@ -1015,7 +977,17 @@ select {
   cursor: not-allowed;
 }
 
-/* ─── SQL Editor ─── */
+.chip-select {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: rgba(17, 24, 45, 0.5);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  min-width: 260px;
+}
+
 .editor-wrap {
   border: 1px solid var(--border-accent);
   border-radius: var(--panel-radius);
@@ -1069,7 +1041,6 @@ select {
   font-weight: 500;
 }
 
-/* ─── Tiny Select ─── */
 .tiny-select {
   display: inline-flex;
   align-items: center;
@@ -1134,9 +1105,6 @@ select {
   background: rgba(99, 102, 241, 0.3);
 }
 
-/* ═══════════════════════════════════════════════════
-   RESULTS PANEL
-   ═══════════════════════════════════════════════════ */
 .results-wrap {
   border: 1px solid var(--border-accent);
   border-radius: var(--panel-radius);
@@ -1232,7 +1200,6 @@ select {
   border-color: rgba(99, 102, 241, 0.35);
 }
 
-/* ─── Table ─── */
 .table-shell {
   overflow: auto;
   min-height: 0;
@@ -1290,6 +1257,38 @@ tr:hover td {
   font-weight: 700;
 }
 
+.result-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(99, 102, 241, 0.1);
+  background: rgba(12, 18, 36, 0.5);
+}
+
+.metric-chip {
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  border-radius: 10px;
+  background: rgba(17, 24, 45, 0.5);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-chip-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.metric-chip strong {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 .results-wrap footer {
   margin-top: auto;
   padding: 10px 14px;
@@ -1303,9 +1302,6 @@ tr:hover td {
   background: rgba(17, 24, 45, 0.2);
 }
 
-/* ═══════════════════════════════════════════════════
-   CONNECTION DRAWER (Overlay + Drawer)
-   ═══════════════════════════════════════════════════ */
 .connection-overlay {
   position: fixed;
   inset: 0;
@@ -1453,9 +1449,6 @@ tr:hover td {
   font-size: 14px;
 }
 
-/* ═══════════════════════════════════════════════════
-   ANIMATIONS
-   ═══════════════════════════════════════════════════ */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -1467,9 +1460,6 @@ tr:hover td {
   }
 }
 
-/* ═══════════════════════════════════════════════════
-   SCROLLBAR
-   ═══════════════════════════════════════════════════ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -1488,9 +1478,6 @@ tr:hover td {
   background: rgba(99, 102, 241, 0.35);
 }
 
-/* ═══════════════════════════════════════════════════
-   RESPONSIVE
-   ═══════════════════════════════════════════════════ */
 @media (max-width: 1080px) {
   .qs-shell {
     grid-template-columns: 1fr;
@@ -1563,11 +1550,12 @@ tr:hover td {
   .workspace-dbbar {
     flex-wrap: wrap;
   }
+
+  .result-metrics-strip {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
 }
 
-/* ═══════════════════════════════════════════════════
-   CTA BUTTON – OUTLINE VARIANT
-   ═══════════════════════════════════════════════════ */
 .cta-button.outline {
   background: transparent;
   border: 1px solid var(--border-accent);
@@ -1581,7 +1569,6 @@ tr:hover td {
   transform: translateY(-1px);
 }
 
-/* ─── Search shortcut badge ─── */
 .search-shortcut {
   width: 22px;
   height: 22px;
@@ -1596,16 +1583,12 @@ tr:hover td {
   flex-shrink: 0;
 }
 
-/* ═══════════════════════════════════════════════════
-   DASHBOARD
-   ═══════════════════════════════════════════════════ */
 .dashboard-body {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-/* ─── Stats Cards ─── */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1674,14 +1657,12 @@ tr:hover td {
   color: #60a5fa;
 }
 
-/* ─── Dashboard Columns ─── */
 .dashboard-columns {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
   gap: 16px;
 }
 
-/* ─── Dashboard Panel ─── */
 .dashboard-panel {
   border: 1px solid var(--border-subtle);
   border-radius: var(--card-radius);
@@ -1715,7 +1696,6 @@ tr:hover td {
   font-weight: 700;
 }
 
-/* ─── Chart Area ─── */
 .chart-area {
   padding: 20px;
   min-height: 180px;
@@ -1761,7 +1741,6 @@ tr:hover td {
   box-shadow: 0 0 6px rgba(248, 113, 113, 0.4);
 }
 
-/* ─── Mini Bar Chart ─── */
 .mini-chart {
   width: 100%;
 }
@@ -1809,7 +1788,6 @@ tr:hover td {
   color: var(--text-muted);
 }
 
-/* ─── Activity List ─── */
 .activity-list {
   padding: 8px 0;
   max-height: 320px;
@@ -1912,9 +1890,6 @@ tr:hover td {
   padding: 32px 20px;
 }
 
-/* ═══════════════════════════════════════════════════
-   HISTORY VIEW
-   ═══════════════════════════════════════════════════ */
 .history-body {
   display: flex;
   flex-direction: column;
@@ -1962,9 +1937,6 @@ tr:hover td {
   border: 1px solid rgba(16, 185, 129, 0.15);
 }
 
-/* ═══════════════════════════════════════════════════
-   SETTINGS VIEW
-   ═══════════════════════════════════════════════════ */
 .settings-body {
   display: flex;
   flex-direction: column;
@@ -2053,7 +2025,6 @@ tr:hover td {
   gap: 10px;
 }
 
-/* ─── Dashboard table inside panel ─── */
 .dashboard-panel .table-shell {
   overflow: auto;
 }
@@ -2062,7 +2033,6 @@ tr:hover td {
   min-width: 600px;
 }
 
-/* ─── Responsive for new pages ─── */
 @media (max-width: 1080px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -2089,9 +2059,6 @@ tr:hover td {
   }
 }
 
-/* ═══════════════════════════════════════════════════
-   WORKSPACE — NEW DESIGN
-   ═══════════════════════════════════════════════════ */
 .ws-new {
   display: flex;
   flex-direction: column;
@@ -2100,7 +2067,6 @@ tr:hover td {
   grid-template-rows: none;
 }
 
-/* ─── Tabs (Query runner / Benchmark) ─── */
 .ws-tabs {
   display: flex;
   gap: 32px;
@@ -2141,7 +2107,6 @@ tr:hover td {
   background: var(--border-subtle);
 }
 
-/* ─── Sections ─── */
 .ws-section {
   display: flex;
   flex-direction: column;
@@ -2157,7 +2122,6 @@ tr:hover td {
   color: var(--text-muted);
 }
 
-/* ─── SQL Query Box ─── */
 .ws-sql-box {
   border: 1px solid var(--border-subtle);
   border-radius: var(--card-radius);
@@ -2190,7 +2154,6 @@ tr:hover td {
   box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.3);
 }
 
-/* ─── Sampling Method Toggle ─── */
 .ws-method-toggle {
   display: flex;
   gap: 12px;
@@ -2222,7 +2185,6 @@ tr:hover td {
   background: rgba(17, 24, 45, 0.7);
 }
 
-/* ─── Sample Fraction Slider ─── */
 .ws-pct-highlight {
   color: #60a5fa;
   font-weight: 800;
@@ -2286,7 +2248,6 @@ tr:hover td {
   cursor: grab;
 }
 
-/* ─── Action Buttons ─── */
 .ws-actions {
   display: flex;
   gap: 14px;
@@ -2337,7 +2298,6 @@ tr:hover td {
   cursor: not-allowed;
 }
 
-/* ─── Sampling Method Used ─── */
 .ws-method-used {
   font-size: 14px;
   font-weight: 600;
@@ -2352,7 +2312,6 @@ tr:hover td {
   cursor: default;
 }
 
-/* ─── Side-by-Side Result Cards ─── */
 .ws-results-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2413,7 +2372,6 @@ tr:hover td {
   font-family: var(--font-code);
 }
 
-/* ─── Bottom Metrics Cards ─── */
 .ws-metrics-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2468,7 +2426,6 @@ tr:hover td {
   text-transform: capitalize;
 }
 
-/* ─── Full Table in ws ─── */
 .ws-full-table {
   border: 1px solid var(--border-subtle);
   border-radius: var(--card-radius);
@@ -2477,7 +2434,6 @@ tr:hover td {
   overflow: hidden;
 }
 
-/* ─── Responsive ─── */
 @media (max-width: 800px) {
   .ws-results-grid {
     grid-template-columns: 1fr;
@@ -2496,9 +2452,6 @@ tr:hover td {
   }
 }
 
-/* ═══════════════════════════════════════════════════
-   SIDEBAR — LIGHT TEAL THEME
-   ═══════════════════════════════════════════════════ */
 .sidebar-light {
   background: linear-gradient(180deg, #b8e6ea 0%, #a8dce2 40%, #9ad4dc 100%) !important;
   border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
@@ -2508,7 +2461,6 @@ tr:hover td {
   display: none !important;
 }
 
-/* Brand */
 .brand-name-aqp {
   font-family: var(--font-code);
   font-weight: 800;
@@ -2523,7 +2475,6 @@ tr:hover td {
   color: #1a2a3a;
 }
 
-/* Account pill — light */
 .account-pill-light {
   background: rgba(0, 0, 0, 0.08) !important;
   border-color: rgba(0, 0, 0, 0.12) !important;
@@ -2539,7 +2490,6 @@ tr:hover td {
   opacity: 0.6;
 }
 
-/* Nav buttons — light sidebar */
 .sidebar-light .nav-button {
   color: #2d4a5a;
   font-weight: 500;
@@ -2568,7 +2518,6 @@ tr:hover td {
   display: none;
 }
 
-/* Nav heading — light */
 .nav-heading-light {
   color: #0077cc !important;
   opacity: 1 !important;
@@ -2577,7 +2526,6 @@ tr:hover td {
   letter-spacing: 0.08em;
 }
 
-/* User panel hidden in light sidebar */
 .sidebar-light .user-panel {
   display: none;
 }

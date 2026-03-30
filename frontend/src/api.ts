@@ -35,6 +35,7 @@ export const registerPostgres = (payload: Partial<SourceConfig>) =>
 export const syncSource = (id: string) => request<SourceConfig>(`/sources/${id}/sync`, { method: "POST" });
 export const startStream = (id: string) => request<SourceConfig>(`/sources/${id}/stream/start`, { method: "POST" });
 export const stopStream = (id: string) => request<SourceConfig>(`/sources/${id}/stream/stop`, { method: "POST" });
+export const deleteSource = (id: string) => request<{ ok: boolean }>(`/sources/${id}/delete`, { method: "POST" });
 
 export const runQuery = (
   sql: string,

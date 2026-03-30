@@ -160,7 +160,7 @@ func BuildApproxSQL(parsed *ParsedQuery, table string) string {
 		case "count":
 			parts = append(parts, fmt.Sprintf("SUM(__aqe_weight) AS %s", quoteIdent(sel.Alias)))
 		case "count_distinct":
-			parts = append(parts, fmt.Sprintf("COUNT(DISTINCT %s) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
+			parts = append(parts, fmt.Sprintf("approx_count_distinct(%s) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
 		case "sum":
 			parts = append(parts, fmt.Sprintf("SUM(%s * __aqe_weight) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
 		case "avg":
@@ -177,6 +177,55 @@ func BuildApproxSQL(parsed *ParsedQuery, table string) string {
 		sql += " GROUP BY " + strings.Join(groupCols, ", ")
 	}
 	return sql
+}
+
+func BuildApproxStratifiedSQL(parsed *ParsedQuery, rawTable string, sampleRate float64) string {
+	if sampleRate <= 0 || sampleRate >= 1 {
+		sampleRate = 0.1
+	}
+
+	groupCols := make([]string, 0, len(parsed.GroupBy))
+	for _, col := range parsed.GroupBy {
+		groupCols = append(groupCols, quoteIdent(col))
+	}
+	partition := strings.Join(groupCols, ", ")
+
+	parts := make([]string, 0, len(parsed.Selects))
+	for _, sel := range parsed.Selects {
+		switch sel.Kind {
+		case "group":
+			parts = append(parts, fmt.Sprintf("%s AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
+		case "count":
+			parts = append(parts, fmt.Sprintf("SUM(__aqe_weight) AS %s", quoteIdent(sel.Alias)))
+		case "count_distinct":
+			parts = append(parts, fmt.Sprintf("approx_count_distinct(%s) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
+		case "sum":
+			parts = append(parts, fmt.Sprintf("SUM(%s * __aqe_weight) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
+		case "avg":
+			parts = append(parts, fmt.Sprintf("SUM(%s * __aqe_weight) / NULLIF(SUM(__aqe_weight), 0) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
+		}
+	}
+
+	return fmt.Sprintf(`
+		WITH __aqe_stratified AS (
+			SELECT *,
+				row_number() OVER (PARTITION BY %s ORDER BY random()) AS __aqe_rownum,
+				count(*) OVER (PARTITION BY %s) AS __aqe_strata_count
+			FROM %s
+		),
+		__aqe_sample AS (
+			SELECT *,
+				CASE
+					WHEN __aqe_strata_count = 0 THEN 1.0
+					ELSE __aqe_strata_count::DOUBLE / GREATEST(1, CEIL(__aqe_strata_count * %f))
+				END AS __aqe_weight
+			FROM __aqe_stratified
+			WHERE __aqe_rownum <= GREATEST(1, CEIL(__aqe_strata_count * %f))
+		)
+		SELECT %s
+		FROM __aqe_sample
+		GROUP BY %s
+	`, partition, partition, quoteIdent(rawTable), sampleRate, sampleRate, strings.Join(parts, ", "), partition)
 }
 
 func BuildHLLSQL(parsed *ParsedQuery, table string) string {
@@ -210,7 +259,6 @@ func IsHLLQueryEligible(parsed *ParsedQuery) bool {
 		case "count_distinct":
 			hasDistinctCount = true
 		default:
-			// Keep sampler path for all other aggregate mixes.
 			return false
 		}
 	}

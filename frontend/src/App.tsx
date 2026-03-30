@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  deleteSource,
   fetchHealth,
   fetchQueryHistory,
   fetchSources,
@@ -32,7 +33,7 @@ type SourceCard = {
   source: SourceConfig;
 };
 
-const defaultSql = `-- Get top users by order volume in last 30 days WITH user_stats AS (
+const defaultSql = `WITH user_stats AS (
 SELECT u.id, u.full_name, u.email,
 COUNT(o.id) AS total_orders, SUM(o.total_amount) AS total_spent
 FROM users u LEFT JOIN orders o ON u.id = o.user_id
@@ -59,6 +60,7 @@ export default function App() {
   const [resultView, setResultView] = useState<"approx" | "exact">("approx");
   const [isRunningQuery, setIsRunningQuery] = useState(false);
   const [streamActionId, setStreamActionId] = useState("");
+  const [deleteActionId, setDeleteActionId] = useState("");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [queryHistory, setQueryHistory] = useState<QueryHistoryEntry[]>([]);
   const [historySearch, setHistorySearch] = useState("");
@@ -68,6 +70,7 @@ export default function App() {
   const [sampleFraction, setSampleFraction] = useState(10);
   const [isRunningBenchmark, setIsRunningBenchmark] = useState(false);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkReport | null>(null);
+  const liveRefreshInFlight = useRef(false);
   const [csvForm, setCSVForm] = useState({
     name: "CSV Dataset",
     file_path: "",
@@ -88,7 +91,6 @@ export default function App() {
     sample_rate: 0.1,
   });
 
-  // Settings state (persisted via localStorage)
   const [settingsApiBase, setSettingsApiBase] = useState(
     () => localStorage.getItem("qs_api_base") || "http://127.0.0.1:8088"
   );
@@ -127,7 +129,6 @@ export default function App() {
       const data = await fetchStats();
       setStats(data);
     } catch {
-      // Silently ignore stats errors
     }
   }, []);
 
@@ -136,7 +137,6 @@ export default function App() {
       const data = await fetchQueryHistory();
       setQueryHistory(data);
     } catch {
-      // Silently ignore history errors
     }
   }, []);
 
@@ -201,7 +201,7 @@ export default function App() {
     if (!activeCard?.source.table_name) {
       return;
     }
-    setSql(`SELECT COUNT(*) AS total_rows FROM ${activeCard.source.table_name}`);
+    setSql(`SELECT COUNT(*) FROM ${activeCard.source.table_name}`);
   }, [activeCard?.source.id]);
 
   const activeResult = useMemo<QueryResult | null>(() => {
@@ -232,6 +232,41 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [hasActiveStream, loadData]);
 
+  const refreshLiveQueryResult = useCallback(async () => {
+    if (!queryResult || !sql.trim() || !activeCard?.source.id) {
+      return;
+    }
+    if (liveRefreshInFlight.current || isRunningQuery || isRunningBenchmark) {
+      return;
+    }
+
+    liveRefreshInFlight.current = true;
+    try {
+      if (activeCard.source.kind === "postgres" && activeCard.source.streaming) {
+        await syncSource(activeCard.source.id);
+      }
+
+      const result = await runQuery(sql, queryMode, accuracyTarget, activeCard.source.id);
+      setQueryResult(result);
+      setResultView((currentView) => chooseAvailableResultView(currentView, result));
+    } catch {
+    } finally {
+      liveRefreshInFlight.current = false;
+    }
+  }, [accuracyTarget, activeCard?.source.id, isRunningBenchmark, isRunningQuery, queryMode, queryResult, sql]);
+
+  useEffect(() => {
+    if (!hasActiveStream || screen !== "workspace" || workspaceTab !== "query" || !queryResult) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      refreshLiveQueryResult();
+    }, 2000);
+
+    return () => window.clearInterval(timer);
+  }, [hasActiveStream, queryResult, refreshLiveQueryResult, screen, workspaceTab]);
+
   const filteredHistory = useMemo(() => {
     return queryHistory.filter((entry) => {
       const matchSearch =
@@ -254,12 +289,7 @@ export default function App() {
       setError("");
       const result = await runQuery(sql, queryMode, accuracyTarget, activeCard?.source.id);
       setQueryResult(result);
-      if (result.approx) {
-        setResultView("approx");
-      } else if (result.exact) {
-        setResultView("exact");
-      }
-      // Refresh history & stats after query
+      setResultView((currentView) => chooseAvailableResultView(currentView, result));
       loadHistory();
       loadStats();
     } catch (err) {
@@ -382,6 +412,28 @@ export default function App() {
     }
   }
 
+  async function handleDeleteSource(source: SourceConfig) {
+    const confirmed = window.confirm(`Delete source "${source.name}" and all synced data?`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeleteActionId(source.id);
+      setError("");
+      await deleteSource(source.id);
+      await loadData();
+      setQueryResult(null);
+      if (activeCardId === source.id) {
+        setScreen("sources");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete source");
+    } finally {
+      setDeleteActionId("");
+    }
+  }
+
   function saveSettings() {
     localStorage.setItem("qs_api_base", settingsApiBase);
     localStorage.setItem("qs_default_mode", settingsDefaultMode);
@@ -422,6 +474,8 @@ export default function App() {
             onSyncSource={handleSyncSource}
             onToggleStream={handleToggleStream}
             streamActionId={streamActionId}
+            onDeleteSource={handleDeleteSource}
+            deleteActionId={deleteActionId}
             loading={isLoading}
           />
         );
@@ -445,17 +499,8 @@ export default function App() {
             activeResult={activeResult}
             streamActionId={streamActionId}
             onToggleStream={handleToggleStream}
-            workspaceTab={workspaceTab}
-            onWorkspaceTab={setWorkspaceTab}
-            samplingMethod={samplingMethod}
-            onSamplingMethod={setSamplingMethod}
-            sampleFraction={sampleFraction}
-            onSampleFraction={setSampleFraction}
             onRunQuery={submitQuery}
             isRunningQuery={isRunningQuery}
-            onRunBenchmark={submitBenchmark}
-            isRunningBenchmark={isRunningBenchmark}
-            benchmarkResult={benchmarkResult}
           />
         );
       case "history":
@@ -578,7 +623,9 @@ export default function App() {
                   + Add Data Source
                 </button>
               ) : screen === "workspace" ? (
-                null
+                <button type="button" className="cta-button cool" onClick={submitQuery}>
+                  {isRunningQuery ? "Running..." : "▶ Run All"}
+                </button>
               ) : screen === "dashboard" ? (
                 <>
                   <button type="button" className="cta-button outline" onClick={() => setConnectionOpen(true)}>
@@ -735,10 +782,6 @@ export default function App() {
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   DASHBOARD VIEW
-   ═══════════════════════════════════════════════════ */
-
 function DashboardView({
   stats,
   sources,
@@ -784,7 +827,6 @@ function DashboardView({
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="stats-grid">
         <div className="stat-card" onClick={onNavigateHistory}>
           <div className="stat-header">Total Queries Run</div>
@@ -810,7 +852,6 @@ function DashboardView({
       </div>
 
       <div className="dashboard-columns">
-        {/* Query Volume Chart */}
         <div className="dashboard-panel chart-panel">
           <div className="panel-header">
             <h3>Query Volume</h3>
@@ -835,7 +876,6 @@ function DashboardView({
           </div>
         </div>
 
-        {/* Recent Activity */}
         <div className="dashboard-panel activity-panel">
           <div className="panel-header">
             <h3>Recent Activity</h3>
@@ -866,7 +906,6 @@ function DashboardView({
         </div>
       </div>
 
-      {/* Active Data Sources Table */}
       <div className="dashboard-panel">
         <div className="panel-header">
           <h3>Active Data Sources</h3>
@@ -925,10 +964,6 @@ function DashboardView({
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   MINI BAR CHART (pure CSS/HTML)
-   ═══════════════════════════════════════════════════ */
-
 function MiniBarChart({
   data,
 }: {
@@ -962,10 +997,6 @@ function MiniBarChart({
     </div>
   );
 }
-
-/* ═══════════════════════════════════════════════════
-   HISTORY VIEW
-   ═══════════════════════════════════════════════════ */
 
 function HistoryView({
   entries,
@@ -1089,10 +1120,6 @@ function HistoryView({
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   SETTINGS VIEW
-   ═══════════════════════════════════════════════════ */
-
 function SettingsView({
   apiBase,
   onApiBaseChange,
@@ -1202,10 +1229,6 @@ function SettingsView({
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   NAV BUTTON (unchanged)
-   ═══════════════════════════════════════════════════ */
-
 function NavButton({
   icon,
   label,
@@ -1225,10 +1248,6 @@ function NavButton({
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   SOURCES VIEW (unchanged logic)
-   ═══════════════════════════════════════════════════ */
-
 function SourcesView({
   cards,
   activeCardId,
@@ -1242,6 +1261,8 @@ function SourcesView({
   onSyncSource,
   onToggleStream,
   streamActionId,
+  onDeleteSource,
+  deleteActionId,
 }: {
   cards: SourceCard[];
   activeCardId: string;
@@ -1255,6 +1276,8 @@ function SourcesView({
   onSyncSource: (id: string) => void;
   onToggleStream: (source: SourceConfig) => void;
   streamActionId: string;
+  onDeleteSource: (source: SourceConfig) => void;
+  deleteActionId: string;
 }) {
   return (
     <section className="screen-body sources-body">
@@ -1374,6 +1397,17 @@ function SourcesView({
                       : (card.source.streaming ? "Stop stream" : "Start stream")}
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  className="ghost-action danger"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDeleteSource(card.source);
+                  }}
+                  disabled={deleteActionId === card.id}
+                >
+                  {deleteActionId === card.id ? "Deleting..." : "Delete"}
+                </button>
               </div>
             </footer>
           </article>
@@ -1394,10 +1428,6 @@ function SourcesView({
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   WORKSPACE VIEW — Redesigned
-   ═══════════════════════════════════════════════════ */
-
 function WorkspaceView({
   sql,
   onSqlChange,
@@ -1416,17 +1446,8 @@ function WorkspaceView({
   activeResult,
   streamActionId,
   onToggleStream,
-  workspaceTab,
-  onWorkspaceTab,
-  samplingMethod,
-  onSamplingMethod,
-  sampleFraction,
-  onSampleFraction,
   onRunQuery,
   isRunningQuery,
-  onRunBenchmark,
-  isRunningBenchmark,
-  benchmarkResult,
 }: {
   sql: string;
   onSqlChange: (value: string) => void;
@@ -1445,245 +1466,163 @@ function WorkspaceView({
   activeResult: QueryResult | null;
   streamActionId: string;
   onToggleStream: (source: SourceConfig) => void;
-  workspaceTab: "query" | "benchmark";
-  onWorkspaceTab: (tab: "query" | "benchmark") => void;
-  samplingMethod: "random" | "stratified";
-  onSamplingMethod: (m: "random" | "stratified") => void;
-  sampleFraction: number;
-  onSampleFraction: (v: number) => void;
   onRunQuery: () => void;
   isRunningQuery: boolean;
-  onRunBenchmark: () => void;
-  isRunningBenchmark: boolean;
-  benchmarkResult: BenchmarkReport | null;
 }) {
-  const approxResult = queryResult?.approx ?? null;
-  const exactResult = queryResult?.exact ?? null;
-
-  const speedup = approxResult?.metric.speedup ?? 0;
-  const errorPct = approxResult?.metric.actual_error ?? approxResult?.metric.estimated_error ?? 0;
-  const sampleRate = approxResult?.metric.sample_rate ?? sampleFraction / 100;
-  const methodLabel = samplingMethod === "stratified" ? "STRATIFIED" : "RANDOM";
-
-  const formatNum = (v: unknown): string => {
-    if (typeof v === "number") return v.toLocaleString();
-    if (typeof v === "string") {
-      const n = Number(v);
-      return Number.isNaN(n) ? v : n.toLocaleString();
-    }
-    return String(v ?? "—");
-  };
-
-  const getResultDisplay = (result: QueryResult | null) => {
-    if (!result || result.rows.length === 0) return { value: "—", time: "—", rows: "—" };
-    const firstRow = result.rows[0];
-    const firstKey = result.schema[0];
-    const val = firstRow[firstKey];
-    return {
-      value: formatNum(val),
-      time: `${result.metric.execution_millis.toFixed(3)} ms`,
-      rows: `${(activeCard?.source.raw_row_count ?? result.metric.row_count).toLocaleString()} rows scanned`,
-    };
-  };
-
-  const approxDisplay = getResultDisplay(approxResult);
-  const exactDisplay = getResultDisplay(exactResult);
+  const approxMetric = queryResult?.approx?.metric;
+  const exactMetric = queryResult?.exact?.metric;
+  const speedupValue =
+    approxMetric?.speedup ??
+    (approxMetric && exactMetric && approxMetric.execution_millis > 0
+      ? exactMetric.execution_millis / approxMetric.execution_millis
+      : undefined);
 
   return (
-    <section className="screen-body workspace-body ws-new">
-      {/* ─── Workspace Tabs ─── */}
-      <div className="ws-tabs">
-        <button
-          type="button"
-          className={workspaceTab === "query" ? "active" : ""}
-          onClick={() => onWorkspaceTab("query")}
+    <section className="screen-body workspace-body">
+      <div className="workspace-dbbar">
+        <select
+          className="chip-select"
+          value={activeCard?.id ?? ""}
+          onChange={(event) => onSelectSource(event.target.value)}
+          aria-label="Select source"
         >
-          Query runner
+          {sourceCards.map((card) => (
+            <option key={card.id} value={card.id}>
+              {card.name} - {displayTableName(card.source)}
+            </option>
+          ))}
+        </select>
+        <button type="button" className="chip muted">
+          {health}
         </button>
-        <button
-          type="button"
-          className={workspaceTab === "benchmark" ? "active" : ""}
-          onClick={() => onWorkspaceTab("benchmark")}
-        >
-          Benchmark
+        <button type="button" className={`chip ${hasActiveStream ? "live" : "muted"}`}>
+          {hasActiveStream ? "Streaming active" : "Streaming idle"}
         </button>
-        <div className="ws-tabs-line" />
-      </div>
-
-      {/* ─── SQL Query Section ─── */}
-      <div className="ws-section">
-        <label className="ws-label">SQL QUERY</label>
-        <div className="ws-sql-box">
-          <textarea
-            value={sql}
-            onChange={(e) => onSqlChange(e.target.value)}
-            spellCheck={false}
-            rows={3}
-            placeholder="SELECT COUNT(*) FROM data"
-          />
-        </div>
-      </div>
-
-      {/* ─── Sampling Method ─── */}
-      <div className="ws-section">
-        <label className="ws-label">SAMPLING METHOD</label>
-        <div className="ws-method-toggle">
+        {activeCard?.source.kind === "postgres" ? (
           <button
             type="button"
-            className={samplingMethod === "random" ? "active" : ""}
-            onClick={() => onSamplingMethod("random")}
+            className={`chip ${activeCard.source.streaming ? "warn" : "success"}`}
+            onClick={() => onToggleStream(activeCard.source)}
+            disabled={streamActionId === activeCard.id}
           >
-            Random Sampling
+            {streamActionId === activeCard.id
+              ? "Working..."
+              : activeCard.source.streaming
+              ? "Stop stream"
+              : "Start stream"}
           </button>
-          <button
-            type="button"
-            className={samplingMethod === "stratified" ? "active" : ""}
-            onClick={() => onSamplingMethod("stratified")}
-          >
-            Stratified Sampling (need GROUP BY)
+        ) : null}
+      </div>
+
+      <div className="editor-wrap">
+        <div className="editor-toolbar">
+          <label className="tiny-select">
+            <span>Mode</span>
+            <select value={queryMode} onChange={(event) => onQueryMode(event.target.value as QueryMode)}>
+              <option value="compare">Compare</option>
+              <option value="exact">Exact</option>
+              <option value="approx">Approx</option>
+            </select>
+          </label>
+          <label className="tiny-select slider">
+            <span>{Math.round(accuracyTarget * 100)}%</span>
+            <input
+              type="range"
+              min="0.5"
+              max="0.99"
+              step="0.01"
+              value={accuracyTarget}
+              onChange={(event) => onAccuracyTarget(Number(event.target.value))}
+            />
+          </label>
+          <button type="button" onClick={onRunQuery} disabled={isRunningQuery}>
+            {isRunningQuery ? "Running..." : "Run"}
           </button>
+          <span>Row limit: 1000</span>
         </div>
+
+        <textarea value={sql} onChange={(event) => onSqlChange(event.target.value)} spellCheck={false} />
       </div>
 
-      {/* ─── Sample Fraction ─── */}
-      <div className="ws-section">
-        <label className="ws-label">
-          SAMPLE FRACTION — <span className="ws-pct-highlight">{sampleFraction}%</span>{" "}
-          <span className="ws-pct-detail">(scans {sampleFraction}% of data)</span>
-        </label>
-        <div className="ws-slider-row">
-          <span className="ws-slider-bound">1%</span>
-          <input
-            type="range"
-            min="1"
-            max="100"
-            value={sampleFraction}
-            onChange={(e) => onSampleFraction(Number(e.target.value))}
-            className="ws-fraction-slider"
-          />
-          <span className="ws-slider-bound">100%</span>
-        </div>
-      </div>
-
-      {/* ─── Action Buttons ─── */}
-      <div className="ws-actions">
-        <button
-          type="button"
-          className="ws-btn-run"
-          onClick={onRunQuery}
-          disabled={isRunningQuery}
-        >
-          {isRunningQuery ? "Running..." : "Run Query"}
-        </button>
-        <button
-          type="button"
-          className="ws-btn-benchmark"
-          onClick={onRunBenchmark}
-          disabled={isRunningBenchmark}
-        >
-          {isRunningBenchmark ? "Running..." : "Run Benchmark"}
-        </button>
-      </div>
-
-      {/* ─── Sampling Method Used ─── */}
-      {queryResult && (
-        <div className="ws-method-used">
-          Sampling method used:{" "}
-          <span className="ws-method-link">{samplingMethod === "stratified" ? "Stratified" : "Random"}</span>
-        </div>
-      )}
-
-      {/* ─── Side-by-Side Results ─── */}
-      <div className="ws-results-grid">
-        <div className={`ws-result-card ${resultView === "approx" ? "active" : ""}`} onClick={() => onResultView("approx")}>
-          <span className="ws-result-tag approx">APPROXIMATE</span>
-          <div className="ws-result-value">{approxDisplay.value}</div>
-          <div className="ws-result-meta">{approxDisplay.time} | {approxDisplay.rows}</div>
-        </div>
-        <div className={`ws-result-card ${resultView === "exact" ? "active" : ""}`} onClick={() => onResultView("exact")}>
-          <span className="ws-result-tag exact">EXACT</span>
-          <div className="ws-result-value">{exactDisplay.value}</div>
-          <div className="ws-result-meta">{exactDisplay.time} | {exactDisplay.rows}</div>
-        </div>
-      </div>
-
-      {/* ─── Metrics Cards ─── */}
-      <div className="ws-metrics-row">
-        <div className="ws-metric-card">
-          <div className="ws-metric-value speedup">{speedup > 0 ? `${speedup.toFixed(2)}X` : "—"}</div>
-          <div className="ws-metric-label">Speedup</div>
-        </div>
-        <div className="ws-metric-card">
-          <div className="ws-metric-value error">{errorPct > 0 ? `${errorPct.toFixed(1)}%` : "0.0%"}</div>
-          <div className="ws-metric-label">Error</div>
-        </div>
-        <div className="ws-metric-card">
-          <div className="ws-metric-value rows-used">{Math.round(sampleRate * 100)}%</div>
-          <div className="ws-metric-label">Rows Used</div>
-        </div>
-        <div className="ws-metric-card">
-          <div className="ws-metric-value method">{methodLabel}</div>
-          <div className="ws-metric-label">Method</div>
-        </div>
-      </div>
-
-      {/* ─── Full Data Table ─── */}
-      {activeResult && activeResult.rows.length > 1 && (
-        <div className="ws-full-table">
-          <div className="panel-header">
-            <h3>Full Results</h3>
-            <div className="result-tabs">
-              <button
-                type="button"
-                className={resultView === "approx" ? "active" : ""}
-                onClick={() => onResultView("approx")}
-                disabled={!queryResult?.approx}
-              >
-                Approx
-              </button>
-              <button
-                type="button"
-                className={resultView === "exact" ? "active" : ""}
-                onClick={() => onResultView("exact")}
-                disabled={!queryResult?.exact}
-              >
-                Exact
-              </button>
-            </div>
+      <div className="results-wrap">
+        <header>
+          <div className="result-tabs">
+            <button
+              type="button"
+              className={resultView === "approx" ? "active" : ""}
+              onClick={() => onResultView("approx")}
+              disabled={!queryResult?.approx}
+            >
+              Approximate
+            </button>
+            <button
+              type="button"
+              className={resultView === "exact" ? "active" : ""}
+              onClick={() => onResultView("exact")}
+              disabled={!queryResult?.exact}
+            >
+              Exact
+            </button>
           </div>
-          <div className="table-shell">
+
+          <div className="result-meta">
+            <span className="ok-mark">{activeResult ? "✓ Success" : "No query run"}</span>
+            <span>{activeResult ? `${activeResult.metric.execution_millis.toFixed(2)} ms` : "--"}</span>
+            <span>{activeResult ? `${activeResult.metric.row_count} rows` : "--"}</span>
+            <span>
+              {activeResult
+                ? `${Math.max(1, activeResult.schema.length * activeResult.rows.length)} values`
+                : "--"}
+            </span>
+          </div>
+        </header>
+
+        <div className="table-shell">
+          {activeResult ? (
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  {activeResult.schema.map((col) => (
-                    <th key={col}>{col}</th>
+                  {activeResult.schema.map((column) => (
+                    <th key={column}>{column}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {activeResult.rows.map((row, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    {activeResult.schema.map((col) => (
-                      <td key={col}>{String(row[col] ?? "")}</td>
+                {activeResult.rows.map((row, index) => (
+                  <tr key={index}>
+                    <td>{index + 1}</td>
+                    {activeResult.schema.map((column) => (
+                      <td key={column}>{String(row[column] ?? "")}</td>
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
+          ) : (
+            <div className="result-placeholder">Run a query to see live results from the selected source.</div>
+          )}
+        </div>
+
+        <div className="result-metrics-strip" aria-live="polite">
+          <div className="metric-chip">
+            <span className="metric-chip-label">Speed</span>
+            <strong>{speedupValue !== undefined ? `${speedupValue.toFixed(2)}x` : "--"}</strong>
           </div>
         </div>
-      )}
+
+        <footer>
+          <span>
+            {activeResult
+              ? `Showing 1 to ${activeResult.rows.length} of ${activeResult.metric.row_count} rows`
+              : "No rows"}
+          </span>
+          <div>‹ 1 ›</div>
+        </footer>
+      </div>
     </section>
   );
 }
-
-
-
-/* ═══════════════════════════════════════════════════
-   SHARED COMPONENTS
-   ═══════════════════════════════════════════════════ */
 
 function StatusPill({ status }: { status: SourceCard["status"] }) {
   return <span className={`status-pill ${status.toLowerCase().replace(" ", "-")}`}>{status}</span>;
@@ -1714,10 +1653,6 @@ function Field({
     </label>
   );
 }
-
-/* ═══════════════════════════════════════════════════
-   UTILITY FUNCTIONS
-   ═══════════════════════════════════════════════════ */
 
 function splitColumns(value: string): string[] {
   return value

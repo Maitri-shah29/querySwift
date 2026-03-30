@@ -32,8 +32,6 @@ func NewServer(dbPath string) (*Server, error) {
 		return nil, err
 	}
 
-	// DuckDB is embedded and much more stable with a single shared connection.
-	// This prevents connection-level concurrency from invalidating the database.
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(0)
@@ -273,6 +271,15 @@ func (s *Server) handleSourceActions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sourceID := parts[0]
+	if len(parts) == 2 && parts[1] == "delete" {
+		if err := s.DeleteSource(sourceID); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		return
+	}
+
 	if len(parts) == 2 && parts[1] == "sync" {
 		source, err := s.SyncSource(r.Context(), sourceID)
 		if err != nil {
@@ -324,7 +331,6 @@ func (s *Server) handleRunQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save query to history
 	var exactMs, approxMs, speedup, errorPct float64
 	var rowCount int64
 	var sourceName string
@@ -342,7 +348,6 @@ func (s *Server) handleRunQuery(w http.ResponseWriter, r *http.Request) {
 			rowCount = response.Approx.Metric.RowCount
 		}
 	}
-	// Try to find source name from SQL
 	parsed, parseErr := ParseAnalyticalSQL(req.SQL)
 	if parseErr == nil {
 		if src, srcErr := s.findSourceByTable(parsed.Table); srcErr == nil {
@@ -371,17 +376,17 @@ func (s *Server) handleQueryHistory(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type HistoryEntry struct {
-		ID          string  `json:"id"`
-		SQL         string  `json:"sql"`
-		Mode        string  `json:"mode"`
-		Status      string  `json:"status"`
-		SourceName  string  `json:"source_name"`
-		ExactMillis float64 `json:"exact_millis"`
+		ID           string  `json:"id"`
+		SQL          string  `json:"sql"`
+		Mode         string  `json:"mode"`
+		Status       string  `json:"status"`
+		SourceName   string  `json:"source_name"`
+		ExactMillis  float64 `json:"exact_millis"`
 		ApproxMillis float64 `json:"approx_millis"`
-		RowCount    int64   `json:"row_count"`
-		Speedup     float64 `json:"speedup"`
-		ErrorPct    float64 `json:"error_pct"`
-		CreatedAt   string  `json:"created_at"`
+		RowCount     int64   `json:"row_count"`
+		Speedup      float64 `json:"speedup"`
+		ErrorPct     float64 `json:"error_pct"`
+		CreatedAt    string  `json:"created_at"`
 	}
 
 	entries := []HistoryEntry{}
@@ -419,7 +424,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	stats["success_count"] = successCount
 	stats["error_count"] = errorCount
 
-	// Daily query counts for the last 7 days
 	dailyCounts := []map[string]any{}
 	dayRows, err := s.db.QueryContext(r.Context(), `
 		SELECT 
@@ -507,7 +511,6 @@ func (s *Server) StartStream(sourceID string) (*SourceConfig, error) {
 	s.mu.Unlock()
 
 	go func() {
-		// Perform an immediate sync so users see updates as soon as streaming starts.
 		_, _ = s.SyncSource(streamCtx, sourceID)
 
 		ticker := time.NewTicker(time.Duration(pollIntervalSeconds) * time.Second)
@@ -536,6 +539,41 @@ func (s *Server) StopStream(sourceID string) (*SourceConfig, error) {
 		cancel()
 	}
 	return s.getSource(sourceID)
+}
+
+func (s *Server) DeleteSource(sourceID string) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	source, err := s.getSource(sourceID)
+	if err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	cancel, streaming := s.streamCancels[sourceID]
+	if streaming {
+		delete(s.streamCancels, sourceID)
+	}
+	s.mu.Unlock()
+	if streaming {
+		cancel()
+	}
+
+	if _, err := s.db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", quoteIdent(source.SampleTable))); err != nil {
+		return err
+	}
+	if _, err := s.db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", quoteIdent(source.RawTable))); err != nil {
+		return err
+	}
+	if _, err := s.db.Exec("DELETE FROM aqe_sources WHERE id = ?", sourceID); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	delete(s.sources, sourceID)
+	s.mu.Unlock()
+	return nil
 }
 
 func normalizeSource(req SourceConfig, kind SourceKind) *SourceConfig {
@@ -677,10 +715,13 @@ func (s *Server) RunQuery(ctx context.Context, req RunQueryRequest) (*RunQueryRe
 
 func (s *Server) executeParsedQuery(ctx context.Context, parsed *ParsedQuery, table string, approximate bool, source *SourceConfig, accuracyTarget float64) (*QueryResult, error) {
 	querySQL := BuildExactSQL(parsed, table)
-	useHLL := approximate && IsHLLQueryEligible(parsed)
 	if approximate {
-		if useHLL {
-			querySQL = BuildHLLSQL(parsed, source.RawTable)
+		if len(parsed.GroupBy) > 0 {
+			if isStratifiedForGroupBy(source, parsed.GroupBy) {
+				querySQL = BuildApproxSQL(parsed, table)
+			} else {
+				querySQL = BuildApproxStratifiedSQL(parsed, source.RawTable, source.SampleRate)
+			}
 		} else {
 			querySQL = BuildApproxSQL(parsed, table)
 		}
@@ -703,16 +744,9 @@ func (s *Server) executeParsedQuery(ctx context.Context, parsed *ParsedQuery, ta
 		RowCount:        int64(len(resultRows)),
 	}
 	if approximate {
-		if useHLL {
-			metric.SampleRate = 1
-			// HyperLogLog typical relative standard error around 0.81% at ~16k registers.
-			metric.EstimatedError = 0.81
-			metric.Confidence = 0.95
-		} else {
-			metric.SampleRate = source.SampleRate
-			metric.Confidence = math.Max(0.5, accuracyTarget)
-			metric.EstimatedError = estimatedError(source.SampleRate, source.RawRowCount)
-		}
+		metric.SampleRate = source.SampleRate
+		metric.Confidence = math.Max(0.5, accuracyTarget)
+		metric.EstimatedError = estimatedError(source.SampleRate, source.RawRowCount)
 	}
 
 	return &QueryResult{Schema: schema, Rows: resultRows, Metric: metric}, nil
@@ -1267,6 +1301,26 @@ func estimatedError(sampleRate float64, rawRows int64) float64 {
 		return 100
 	}
 	return math.Sqrt((1-sampleRate)/(sampleRate*float64(rawRows))) * 100
+}
+
+func isStratifiedForGroupBy(source *SourceConfig, groupBy []string) bool {
+	if source == nil || len(groupBy) == 0 {
+		return false
+	}
+	if source.SamplingMethod != SamplingMethodStratified || len(source.StratifyColumns) == 0 {
+		return false
+	}
+
+	strataSet := make(map[string]bool, len(source.StratifyColumns))
+	for _, col := range source.StratifyColumns {
+		strataSet[safeIdent(col)] = true
+	}
+	for _, col := range groupBy {
+		if !strataSet[safeIdent(col)] {
+			return false
+		}
+	}
+	return true
 }
 
 func decodeJSON(r *http.Request, target any) error {
