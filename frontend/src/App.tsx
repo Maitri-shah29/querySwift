@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchHealth,
   fetchSources,
   importCSV,
   registerPostgres,
   runQuery,
+  startStream,
+  stopStream,
   syncSource,
 } from "./api";
 import type { QueryMode, QueryResult, RunQueryResponse, SourceConfig } from "./types";
@@ -26,8 +28,6 @@ type SourceCard = {
   syncProgress?: number;
   source: SourceConfig;
 };
-
-const editorTabs = ["user_analytics.sql", "Untitled-1"];
 
 const defaultSql = `-- Get top users by order volume in last 30 days WITH user_stats AS (
 SELECT u.id, u.full_name, u.email,
@@ -55,6 +55,7 @@ export default function App() {
   const [queryResult, setQueryResult] = useState<RunQueryResponse | null>(null);
   const [resultView, setResultView] = useState<"approx" | "exact">("approx");
   const [isRunningQuery, setIsRunningQuery] = useState(false);
+  const [streamActionId, setStreamActionId] = useState("");
   const [csvForm, setCSVForm] = useState({
     name: "CSV Dataset",
     file_path: "",
@@ -75,7 +76,7 @@ export default function App() {
     sample_rate: 0.1,
   });
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError("");
@@ -93,11 +94,11 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const sourceCards = useMemo(() => {
     return sources.map((source) => {
@@ -169,6 +170,21 @@ export default function App() {
     }
     return queryResult.approx ?? queryResult.exact ?? null;
   }, [queryResult, resultView]);
+
+  const hasActiveStream = useMemo(
+    () => sources.some((source) => source.streaming),
+    [sources]
+  );
+
+  useEffect(() => {
+    if (!hasActiveStream) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      loadData();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [hasActiveStream, loadData]);
 
   async function submitQuery() {
     if (!sql.trim()) {
@@ -263,6 +279,23 @@ export default function App() {
     }
   }
 
+  async function handleToggleStream(source: SourceConfig) {
+    try {
+      setStreamActionId(source.id);
+      setError("");
+      if (source.streaming) {
+        await stopStream(source.id);
+      } else {
+        await startStream(source.id);
+      }
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update streaming");
+    } finally {
+      setStreamActionId("");
+    }
+  }
+
   return (
     <div className={`qs-root ${themeClass}`}>
       <div className="qs-shell">
@@ -280,14 +313,12 @@ export default function App() {
             </button>
 
             <nav className="nav-sections" aria-label="Navigation">
-              <NavButton label="Project & Workspace" icon="◫" />
               <NavButton
                 label="Query Workspace"
                 icon="〉_"
                 active={screen === "workspace"}
                 onClick={() => setScreen("workspace")}
               />
-              <NavButton label="Saved Queries & History" icon="↺" />
               <NavButton
                 label="Data Sources"
                 icon="⛁"
@@ -295,9 +326,6 @@ export default function App() {
                 onClick={() => setScreen("sources")}
               />
             </nav>
-
-            <p className="nav-heading">CONFIGURATION</p>
-            <NavButton label="Settings" icon="⚙" />
           </div>
 
           <footer className="user-panel">
@@ -311,19 +339,19 @@ export default function App() {
 
         <main className="qs-main">
           <header className="qs-topbar">
-            <div className="top-search-wrap">
-              <span className="search-icon">⌕</span>
-              <input
-                aria-label="Search"
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-                placeholder={
-                  screen === "sources"
-                    ? "Search data sources... (Cmd+K)"
-                    : "Search schema... (Cmd+K)"
-                }
-              />
-            </div>
+            {screen === "sources" ? (
+              <div className="top-search-wrap">
+                <span className="search-icon">⌕</span>
+                <input
+                  aria-label="Search"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="Search data sources..."
+                />
+              </div>
+            ) : (
+              <h2 className="top-title">Query Workspace</h2>
+            )}
 
             <div className="topbar-actions">
               {screen === "sources" ? (
@@ -354,6 +382,8 @@ export default function App() {
                 setScreen("workspace");
               }}
               onSyncSource={handleSyncSource}
+              onToggleStream={handleToggleStream}
+              streamActionId={streamActionId}
               loading={isLoading}
             />
           ) : (
@@ -362,6 +392,7 @@ export default function App() {
               onSqlChange={setSql}
               activeCard={activeCard}
               health={health}
+              hasActiveStream={hasActiveStream}
               queryMode={queryMode}
               onQueryMode={setQueryMode}
               accuracyTarget={accuracyTarget}
@@ -370,6 +401,8 @@ export default function App() {
               onResultView={setResultView}
               queryResult={queryResult}
               activeResult={activeResult}
+              streamActionId={streamActionId}
+              onToggleStream={handleToggleStream}
             />
           )}
         </main>
@@ -538,6 +571,8 @@ function SourcesView({
   onAddSource,
   onSelectCard,
   onSyncSource,
+  onToggleStream,
+  streamActionId,
 }: {
   cards: SourceCard[];
   activeCardId: string;
@@ -549,6 +584,8 @@ function SourcesView({
   onAddSource: () => void;
   onSelectCard: (id: string) => void;
   onSyncSource: (id: string) => void;
+  onToggleStream: (source: SourceConfig) => void;
+  streamActionId: string;
 }) {
   return (
     <section className="screen-body sources-body">
@@ -642,16 +679,33 @@ function SourcesView({
 
             <footer>
               <span>◫ {card.tables.toLocaleString()} rows</span>
-              <button
-                type="button"
-                className="ghost-action"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSyncSource(card.id);
-                }}
-              >
-                Sync now
-              </button>
+              <div className="card-actions">
+                <button
+                  type="button"
+                  className="ghost-action"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSyncSource(card.id);
+                  }}
+                >
+                  Sync now
+                </button>
+                {card.source.kind === "postgres" ? (
+                  <button
+                    type="button"
+                    className="ghost-action"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleStream(card.source);
+                    }}
+                    disabled={streamActionId === card.id}
+                  >
+                    {streamActionId === card.id
+                      ? "Working..."
+                      : (card.source.streaming ? "Stop stream" : "Start stream")}
+                  </button>
+                ) : null}
+              </div>
             </footer>
           </article>
         ))}
@@ -676,6 +730,7 @@ function WorkspaceView({
   onSqlChange,
   activeCard,
   health,
+  hasActiveStream,
   queryMode,
   onQueryMode,
   accuracyTarget,
@@ -684,11 +739,14 @@ function WorkspaceView({
   onResultView,
   queryResult,
   activeResult,
+  streamActionId,
+  onToggleStream,
 }: {
   sql: string;
   onSqlChange: (value: string) => void;
   activeCard?: SourceCard;
   health: string;
+  hasActiveStream: boolean;
   queryMode: QueryMode;
   onQueryMode: (value: QueryMode) => void;
   accuracyTarget: number;
@@ -697,35 +755,42 @@ function WorkspaceView({
   onResultView: (value: "approx" | "exact") => void;
   queryResult: RunQueryResponse | null;
   activeResult: QueryResult | null;
+  streamActionId: string;
+  onToggleStream: (source: SourceConfig) => void;
 }) {
   return (
     <section className="screen-body workspace-body">
       <div className="workspace-dbbar">
         <button type="button" className="chip success">
-          ● {activeCard?.name ?? "No source selected"} ▾
+          ● {activeCard?.name ?? "No source selected"}
         </button>
         <button type="button" className="chip muted">
-          ◫ {activeCard ? displayTableName(activeCard.source) : "public"} ▾
+          ◫ {activeCard ? displayTableName(activeCard.source) : "public"}
         </button>
         <button type="button" className="chip muted">
           {health}
         </button>
+        <button type="button" className={`chip ${hasActiveStream ? "live" : "muted"}`}>
+          {hasActiveStream ? "Streaming active" : "Streaming idle"}
+        </button>
+        {activeCard?.source.kind === "postgres" ? (
+          <button
+            type="button"
+            className={`chip ${activeCard.source.streaming ? "warn" : "success"}`}
+            onClick={() => onToggleStream(activeCard.source)}
+            disabled={streamActionId === activeCard.id}
+          >
+            {streamActionId === activeCard.id
+              ? "Working..."
+              : activeCard.source.streaming
+                ? "Stop stream"
+                : "Start stream"}
+          </button>
+        ) : null}
       </div>
 
       <div className="editor-wrap">
-        <div className="editor-tabs">
-          {editorTabs.map((tab, index) => (
-            <button key={tab} type="button" className={index === 0 ? "active" : ""}>
-              {tab}
-              {index === 0 ? " •" : ""}
-            </button>
-          ))}
-          <button type="button">＋</button>
-        </div>
-
         <div className="editor-toolbar">
-          <button type="button">☰ Format</button>
-          <button type="button">⌁ Explain</button>
           <label className="tiny-select">
             <span>Mode</span>
             <select value={queryMode} onChange={(event) => onQueryMode(event.target.value as QueryMode)}>
@@ -770,7 +835,6 @@ function WorkspaceView({
             >
               Exact
             </button>
-            <button type="button">Messages</button>
           </div>
 
           <div className="result-meta">
@@ -782,7 +846,6 @@ function WorkspaceView({
                 ? `${Math.max(1, activeResult.schema.length * activeResult.rows.length)} values`
                 : "--"}
             </span>
-            <button type="button">CSV</button>
           </div>
         </header>
 

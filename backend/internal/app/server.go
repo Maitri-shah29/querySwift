@@ -342,6 +342,11 @@ func (s *Server) StartStream(sourceID string) (*SourceConfig, error) {
 		return nil, fmt.Errorf("streaming is only supported for postgres sources")
 	}
 
+	pollIntervalSeconds := source.PollIntervalSeconds
+	if pollIntervalSeconds <= 0 {
+		pollIntervalSeconds = 15
+	}
+
 	s.mu.Lock()
 	if cancel, ok := s.streamCancels[sourceID]; ok {
 		cancel()
@@ -351,7 +356,10 @@ func (s *Server) StartStream(sourceID string) (*SourceConfig, error) {
 	s.mu.Unlock()
 
 	go func() {
-		ticker := time.NewTicker(time.Duration(source.PollIntervalSeconds) * time.Second)
+		// Perform an immediate sync so users see updates as soon as streaming starts.
+		_, _ = s.SyncSource(streamCtx, sourceID)
+
+		ticker := time.NewTicker(time.Duration(pollIntervalSeconds) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {

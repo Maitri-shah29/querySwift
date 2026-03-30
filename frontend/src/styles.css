@@ -276,6 +276,12 @@ textarea {
   gap: 10px;
 }
 
+.top-title {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
 .inline-error {
   margin: 12px 18px 0;
   border: 1px solid rgba(220, 38, 38, 0.36);
@@ -557,6 +563,11 @@ textarea {
   font-weight: 700;
 }
 
+.card-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .ghost-action {
   border: 1px solid rgba(99, 102, 241, 0.25);
   background: rgba(99, 102, 241, 0.08);
@@ -566,6 +577,11 @@ textarea {
   cursor: pointer;
   font-weight: 700;
   font-size: 12px;
+}
+
+.ghost-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .add-card {
@@ -640,31 +656,29 @@ textarea {
   color: #a5b4fc;
 }
 
+.chip.live {
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(6, 78, 59, 0.35);
+}
+
+.chip.warn {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.38);
+  background: rgba(127, 29, 29, 0.45);
+  cursor: pointer;
+}
+
+.chip:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .editor-wrap {
   border: 1px solid rgba(99, 102, 241, 0.26);
   border-radius: var(--panel-radius);
   overflow: hidden;
   background: rgba(15, 23, 42, 0.86);
-}
-
-.editor-tabs {
-  display: flex;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
-}
-
-.editor-tabs button {
-  border: 0;
-  border-right: 1px solid rgba(99, 102, 241, 0.2);
-  background: transparent;
-  color: #a5b4fc;
-  padding: 9px 11px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.editor-tabs button.active {
-  background: rgba(99, 102, 241, 0.18);
-  color: #e0e7ff;
 }
 
 .editor-toolbar {
