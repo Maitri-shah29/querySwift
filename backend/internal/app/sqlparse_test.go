@@ -29,6 +29,23 @@ func TestParseAnalyticalSQLRejectsNonGroupColumn(t *testing.T) {
 	}
 }
 
+func TestParseAnalyticalSQLCountDistinct(t *testing.T) {
+	parsed, err := ParseAnalyticalSQL(`SELECT COUNT(DISTINCT user_id) AS unique_users FROM sales`)
+	if err != nil {
+		t.Fatalf("expected count distinct to parse, got error: %v", err)
+	}
+
+	if len(parsed.Selects) != 1 {
+		t.Fatalf("expected one select expression, got %d", len(parsed.Selects))
+	}
+	if parsed.Selects[0].Kind != "count_distinct" {
+		t.Fatalf("expected count_distinct kind, got %s", parsed.Selects[0].Kind)
+	}
+	if parsed.Selects[0].Column != "user_id" {
+		t.Fatalf("expected user_id column, got %s", parsed.Selects[0].Column)
+	}
+}
+
 func TestBuildApproxSQL(t *testing.T) {
 	parsed, err := ParseAnalyticalSQL(`SELECT region, AVG(revenue) AS avg_revenue, COUNT(*) FROM sales GROUP BY region`)
 	if err != nil {
@@ -38,6 +55,36 @@ func TestBuildApproxSQL(t *testing.T) {
 	sql := BuildApproxSQL(parsed, "sales_sample")
 	if sql == "" {
 		t.Fatal("expected non-empty sql")
+	}
+}
+
+func TestBuildHLLSQL(t *testing.T) {
+	parsed, err := ParseAnalyticalSQL(`SELECT region, COUNT(DISTINCT user_id) AS uu FROM sales GROUP BY region`)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+
+	sql := BuildHLLSQL(parsed, "sales_raw")
+	if !strings.Contains(sql, `approx_count_distinct("user_id") AS "uu"`) {
+		t.Fatalf("expected approx_count_distinct in HLL sql, got: %s", sql)
+	}
+}
+
+func TestIsHLLQueryEligible(t *testing.T) {
+	eligible, err := ParseAnalyticalSQL(`SELECT COUNT(DISTINCT user_id) FROM sales`)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if !IsHLLQueryEligible(eligible) {
+		t.Fatal("expected count distinct only query to be HLL eligible")
+	}
+
+	fallback, err := ParseAnalyticalSQL(`SELECT COUNT(DISTINCT user_id), SUM(revenue) FROM sales`)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if IsHLLQueryEligible(fallback) {
+		t.Fatal("expected mixed aggregates query to fallback to sampler path")
 	}
 }
 

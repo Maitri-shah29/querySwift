@@ -515,8 +515,13 @@ func (s *Server) RunQuery(ctx context.Context, req RunQueryRequest) (*RunQueryRe
 
 func (s *Server) executeParsedQuery(ctx context.Context, parsed *ParsedQuery, table string, approximate bool, source *SourceConfig, accuracyTarget float64) (*QueryResult, error) {
 	querySQL := BuildExactSQL(parsed, table)
+	useHLL := approximate && IsHLLQueryEligible(parsed)
 	if approximate {
-		querySQL = BuildApproxSQL(parsed, table)
+		if useHLL {
+			querySQL = BuildHLLSQL(parsed, source.RawTable)
+		} else {
+			querySQL = BuildApproxSQL(parsed, table)
+		}
 	}
 
 	start := time.Now()
@@ -536,9 +541,16 @@ func (s *Server) executeParsedQuery(ctx context.Context, parsed *ParsedQuery, ta
 		RowCount:        int64(len(resultRows)),
 	}
 	if approximate {
-		metric.SampleRate = source.SampleRate
-		metric.Confidence = math.Max(0.5, accuracyTarget)
-		metric.EstimatedError = estimatedError(source.SampleRate, source.RawRowCount)
+		if useHLL {
+			metric.SampleRate = 1
+			// HyperLogLog typical relative standard error around 0.81% at ~16k registers.
+			metric.EstimatedError = 0.81
+			metric.Confidence = 0.95
+		} else {
+			metric.SampleRate = source.SampleRate
+			metric.Confidence = math.Max(0.5, accuracyTarget)
+			metric.EstimatedError = estimatedError(source.SampleRate, source.RawRowCount)
+		}
 	}
 
 	return &QueryResult{Schema: schema, Rows: resultRows, Metric: metric}, nil

@@ -7,7 +7,7 @@ import (
 )
 
 var selectFromRegex = regexp.MustCompile(`(?is)^\s*select\s+(.*?)\s+from\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:group\s+by\s+(.*?))?\s*;?\s*$`)
-var funcRegex = regexp.MustCompile(`(?is)^(count|sum|avg)\s*\(\s*(\*|[a-zA-Z_][a-zA-Z0-9_]*)\s*\)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?$`)
+var funcRegex = regexp.MustCompile(`(?is)^(count|sum|avg)\s*\(\s*(distinct\s+)?(\*|[a-zA-Z_][a-zA-Z0-9_]*)\s*\)\s*(?:as\s+([a-zA-Z_][a-zA-Z0-9_]*))?$`)
 
 type SelectExpr struct {
 	Kind   string
@@ -64,19 +64,35 @@ func ParseAnalyticalSQL(sql string) (*ParsedQuery, error) {
 		}
 
 		funcMatch := funcRegex.FindStringSubmatch(strings.ToLower(part))
-		if len(funcMatch) == 4 {
-			alias := normalizeIdentifier(funcMatch[3])
+		if len(funcMatch) == 5 {
+			kind := strings.ToLower(funcMatch[1])
+			distinct := strings.TrimSpace(strings.ToLower(funcMatch[2])) == "distinct"
+			column := normalizeIdentifier(funcMatch[3])
+
+			if distinct {
+				if kind != "count" {
+					return nil, fmt.Errorf("DISTINCT is only supported for COUNT")
+				}
+				if column == "*" {
+					return nil, fmt.Errorf("COUNT(DISTINCT *) is not supported")
+				}
+				kind = "count_distinct"
+			}
+
+			alias := normalizeIdentifier(funcMatch[4])
 			if alias == "" {
-				if funcMatch[2] == "*" {
+				if kind == "count_distinct" {
+					alias = "count_distinct_" + column
+				} else if column == "*" {
 					alias = strings.ToLower(funcMatch[1]) + "_all"
 				} else {
-					alias = strings.ToLower(funcMatch[1]) + "_" + normalizeIdentifier(funcMatch[2])
+					alias = strings.ToLower(funcMatch[1]) + "_" + column
 				}
 			}
 
 			query.Selects = append(query.Selects, SelectExpr{
-				Kind:   strings.ToLower(funcMatch[1]),
-				Column: normalizeIdentifier(funcMatch[2]),
+				Kind:   kind,
+				Column: column,
 				Alias:  alias,
 			})
 			continue
@@ -115,6 +131,8 @@ func BuildExactSQL(parsed *ParsedQuery, table string) string {
 			parts = append(parts, fmt.Sprintf("%s AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
 		case "count":
 			parts = append(parts, fmt.Sprintf("COUNT(*) AS %s", quoteIdent(sel.Alias)))
+		case "count_distinct":
+			parts = append(parts, fmt.Sprintf("COUNT(DISTINCT %s) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
 		case "sum":
 			parts = append(parts, fmt.Sprintf("SUM(%s) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
 		case "avg":
@@ -141,6 +159,8 @@ func BuildApproxSQL(parsed *ParsedQuery, table string) string {
 			parts = append(parts, fmt.Sprintf("%s AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
 		case "count":
 			parts = append(parts, fmt.Sprintf("SUM(__aqe_weight) AS %s", quoteIdent(sel.Alias)))
+		case "count_distinct":
+			parts = append(parts, fmt.Sprintf("COUNT(DISTINCT %s) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
 		case "sum":
 			parts = append(parts, fmt.Sprintf("SUM(%s * __aqe_weight) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
 		case "avg":
@@ -157,6 +177,44 @@ func BuildApproxSQL(parsed *ParsedQuery, table string) string {
 		sql += " GROUP BY " + strings.Join(groupCols, ", ")
 	}
 	return sql
+}
+
+func BuildHLLSQL(parsed *ParsedQuery, table string) string {
+	parts := make([]string, 0, len(parsed.Selects))
+	for _, sel := range parsed.Selects {
+		switch sel.Kind {
+		case "group":
+			parts = append(parts, fmt.Sprintf("%s AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
+		case "count_distinct":
+			parts = append(parts, fmt.Sprintf("approx_count_distinct(%s) AS %s", quoteIdent(sel.Column), quoteIdent(sel.Alias)))
+		}
+	}
+
+	sql := fmt.Sprintf("SELECT %s FROM %s", strings.Join(parts, ", "), quoteIdent(table))
+	if len(parsed.GroupBy) > 0 {
+		groupCols := make([]string, 0, len(parsed.GroupBy))
+		for _, col := range parsed.GroupBy {
+			groupCols = append(groupCols, quoteIdent(col))
+		}
+		sql += " GROUP BY " + strings.Join(groupCols, ", ")
+	}
+	return sql
+}
+
+func IsHLLQueryEligible(parsed *ParsedQuery) bool {
+	hasDistinctCount := false
+	for _, sel := range parsed.Selects {
+		switch sel.Kind {
+		case "group":
+			continue
+		case "count_distinct":
+			hasDistinctCount = true
+		default:
+			// Keep sampler path for all other aggregate mixes.
+			return false
+		}
+	}
+	return hasDistinctCount
 }
 
 func splitCommaSeparated(input string) ([]string, error) {
