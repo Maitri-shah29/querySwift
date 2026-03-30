@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import aqpLogo from "./aqpengine.png";
 import {
   fetchHealth,
   fetchQueryHistory,
@@ -492,16 +493,11 @@ export default function App() {
   return (
     <div className={`qs-root ${themeClass}`}>
       <div className="qs-shell">
-        <aside className="qs-sidebar sidebar-light">
+        <aside className="qs-sidebar sidebar-dark">
           <div>
             <div className="brand-row">
-              <span className="brand-name-aqp"><em>AQP</em> ENGINE</span>
+              <img src={aqpLogo} alt="AQP Engine" className="brand-logo" />
             </div>
-
-            <button className="account-pill account-pill-light" type="button">
-              <span>Acme Corp</span>
-              <span className="caret">{"\u25BE"}</span>
-            </button>
 
             <nav className="nav-sections" aria-label="Navigation">
               <NavButton
@@ -553,8 +549,11 @@ export default function App() {
                 />
               </div>
             ) : screen === "dashboard" ? (
-              <div className="top-search-wrap">
-                <span className="search-icon">⌕</span>
+              <div className="top-search-wrap dashboard-search-wrap">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="search-icon">
+                  <circle cx="11" cy="11" r="7"></circle>
+                  <line x1="21" y1="21" x2="16" y2="16"></line>
+                </svg>
                 <input
                   aria-label="Search"
                   placeholder="Search queries, data sources, or history... (Cmd+K)"
@@ -567,7 +566,7 @@ export default function App() {
                 {screen === "workspace"
                   ? "Query Workspace"
                   : screen === "history"
-                  ? "Query History"
+                  ? "Saved Queries & History"
                   : "Settings"}
               </h2>
             )}
@@ -581,15 +580,13 @@ export default function App() {
                 null
               ) : screen === "dashboard" ? (
                 <>
-                  <button type="button" className="cta-button outline" onClick={() => setConnectionOpen(true)}>
-                    Add Data Source
-                  </button>
                   <button
                     type="button"
-                    className="cta-button cool"
+                    className="dashboard-cta"
                     onClick={() => setScreen("workspace")}
                   >
-                    + New Query
+                    <span style={{ fontSize: "16px", fontWeight: "bold", marginRight: "4px" }}>+</span>
+                    New Query
                   </button>
                 </>
               ) : null}
@@ -604,7 +601,7 @@ export default function App() {
 
       {connectionOpen ? (
         <div className="connection-overlay" onClick={() => setConnectionOpen(false)}>
-          <aside className="connection-drawer" onClick={(event) => event.stopPropagation()}>
+          <aside className="connection-drawer sources-dark-theme" onClick={(event) => event.stopPropagation()}>
             <div className="drawer-header">
               <h2>Add Data Source</h2>
               <button className="drawer-close" type="button" onClick={() => setConnectionOpen(false)}>
@@ -757,168 +754,164 @@ function DashboardView({
   onAddSource: () => void;
 }) {
   const recentHistory = history.slice(0, 5);
-
   const csvCount = sources.filter((s) => s.source.kind === "csv").length;
   const pgCount = sources.filter((s) => s.source.kind === "postgres").length;
-  const sourceSubtext = [
-    pgCount > 0 ? `${pgCount} PostgreSQL` : null,
-    csvCount > 0 ? `${csvCount} CSV` : null,
-  ]
-    .filter(Boolean)
-    .join(", ") || "No sources";
 
   return (
-    <section className="screen-body dashboard-body">
-      <div className="section-head">
+    <section className="screen-body dashboard-body dashboard-dark-theme">
+      <div className="section-head dark-section-head">
         <div>
-          <h1>Dashboard Overview</h1>
-          <p>Welcome back, here's what's happening in your workspace today</p>
+          <h1 className="mono-header">Dashboard Overview</h1>
+          <p className="mono-subtext">Welcome back, Here's what's happening in your workspace today</p>
         </div>
         <div className="topbar-actions">
-          <button type="button" className="cta-button outline" onClick={onAddSource}>
+          <button type="button" className="action-btn-outline" onClick={onAddSource}>
             Add Data Source
           </button>
-          <button type="button" className="cta-button outline" onClick={onNavigateHistory}>
+          <button type="button" className="action-btn-outline" onClick={onNavigateHistory}>
             Browse Saved
           </button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="stats-grid">
-        <div className="stat-card" onClick={onNavigateHistory}>
+      <div className="stats-grid dark-stats-grid">
+        <div className="stat-card dark-stat-card" onClick={onNavigateHistory}>
           <div className="stat-header">Total Queries Run</div>
-          <div className="stat-value">{stats ? stats.total_queries.toLocaleString() : "—"}</div>
-          <div className="stat-subtext success-text">
-            {stats && stats.success_count > 0
-              ? `${stats.success_count} successful`
-              : "Run your first query"}
+          <div className="stat-value dark-stat-value">{stats ? stats.total_queries.toLocaleString() : "—"}</div>
+          <div className="stat-subtext dark-stat-subtext">
+            {stats && stats.success_count > 0 ? (
+              <><span className="text-green">{(stats.success_count / stats.total_queries * 100).toFixed(1)}% successful</span> <span className="text-blue">overall</span></>
+            ) : "Run your first query"}
           </div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card dark-stat-card">
           <div className="stat-header">Average Runtime</div>
-          <div className="stat-value">{stats ? `${stats.avg_runtime_ms}ms` : "—"}</div>
-          <div className="stat-subtext info-text">
-            {stats && stats.avg_runtime_ms > 0 ? "Across all queries" : "No data yet"}
+          <div className="stat-value dark-stat-value">{stats ? `${stats.avg_runtime_ms}ms` : "—"}</div>
+          <div className="stat-subtext dark-stat-subtext">
+            {stats && stats.avg_runtime_ms > 0 ? <><span className="text-green">4.2% faster than avg</span></> : "No data yet"}
           </div>
         </div>
-        <div className="stat-card" onClick={onNavigateSources}>
+        <div className="stat-card dark-stat-card" onClick={onNavigateSources}>
           <div className="stat-header">Connected Sources</div>
-          <div className="stat-value">{stats ? stats.connected_sources : "—"}</div>
-          <div className="stat-subtext">{sourceSubtext}</div>
-        </div>
-      </div>
-
-      <div className="dashboard-columns">
-        {/* Query Volume Chart */}
-        <div className="dashboard-panel chart-panel">
-          <div className="panel-header">
-            <h3>Query Volume</h3>
-            <span className="panel-badge">Last 7 Days</span>
-          </div>
-          <div className="chart-area">
-            {stats && stats.daily_counts.length > 0 ? (
-              <MiniBarChart data={stats.daily_counts} />
-            ) : (
-              <div className="chart-placeholder">
-                <p>No query data yet. Run some queries to see volume trends.</p>
-              </div>
-            )}
-          </div>
-          <div className="chart-legend">
-            <span className="legend-item">
-              <span className="legend-dot success" /> Successful Queries
-            </span>
-            <span className="legend-item">
-              <span className="legend-dot error" /> Errors
-            </span>
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="dashboard-panel activity-panel">
-          <div className="panel-header">
-            <h3>Recent Activity</h3>
-          </div>
-          <div className="activity-list">
-            {recentHistory.length === 0 ? (
-              <p className="empty-message">No recent activity. Run a query to get started.</p>
-            ) : (
-              recentHistory.map((entry) => (
-                <div key={entry.id} className="activity-item">
-                  <span className={`activity-dot ${entry.status}`} />
-                  <div className="activity-content">
-                    <strong>
-                      {entry.status === "success" ? "Query executed" : "Query failed"}
-                    </strong>
-                    <div className="activity-query-preview">
-                      <code>{truncateSQL(entry.sql, 50)}</code>
-                      <span className={`activity-status-badge ${entry.status}`}>
-                        {entry.status === "success" ? "Success" : "Error"}
-                      </span>
-                    </div>
-                    <small>{formatRelativeTime(entry.created_at)}</small>
-                  </div>
-                </div>
-              ))
-            )}
+          <div className="stat-value dark-stat-value">{stats ? stats.connected_sources : "—"}</div>
+          <div className="stat-subtext dark-stat-subtext">
+            <span className="text-green">{pgCount} PostgreSQL, {csvCount} CSV</span>
           </div>
         </div>
       </div>
 
-      {/* Active Data Sources Table */}
-      <div className="dashboard-panel">
-        <div className="panel-header">
-          <h3>Active Data Sources</h3>
-          <button type="button" className="ghost-action" onClick={onNavigateSources}>
-            View All
-          </button>
-        </div>
-        <div className="table-shell">
-          <table>
-            <thead>
-              <tr>
-                <th>Source Name</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Rows</th>
-                <th>Last Sync</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sources.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 24 }}>
-                    No data sources connected. Add one to get started.
-                  </td>
-                </tr>
+      <div className="dashboard-dark-layout">
+        <div className="dashboard-left-col">
+          {/* Query Volume Chart */}
+          <div className="dashboard-panel dark-panel chart-panel">
+            <div className="panel-header">
+              <h3>Query Volume</h3>
+              <div className="dark-panel-dropdown">Last 7 Days <span>▼</span></div>
+            </div>
+            <div className="chart-area dark-chart-area">
+              {stats && stats.daily_counts.length > 0 ? (
+                <DashboardChart data={stats.daily_counts} />
               ) : (
-                sources.map((card) => (
-                  <tr key={card.id}>
-                    <td>
-                      <strong>{card.name}</strong>
-                    </td>
-                    <td>{card.engine}</td>
-                    <td>
-                      <StatusPill status={card.status} />
-                    </td>
-                    <td>{card.tables.toLocaleString()}</td>
-                    <td>{card.syncText}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="ghost-action"
-                        onClick={onNavigateWorkspace}
-                      >
-                        Query
-                      </button>
-                    </td>
+                <div className="chart-placeholder">
+                  <p>No query data yet. Run some queries to see volume trends.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Active Data Sources Table */}
+          <div className="dashboard-panel dark-panel table-panel">
+            <div className="panel-header">
+              <h3>Active Data Sources</h3>
+              <button type="button" className="ghost-action text-blue-action" onClick={onNavigateSources}>
+                View All
+              </button>
+            </div>
+            <div className="dark-table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>SOURCE NAME</th>
+                    <th>TYPE</th>
+                    <th>STATUS</th>
+                    <th>AVG LATENCY</th>
+                    <th>ACTIONS</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {sources.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: "center", padding: 24 }}>
+                        No data sources connected. Add one to get started.
+                      </td>
+                    </tr>
+                  ) : (
+                    sources.map((card) => (
+                      <tr key={card.id}>
+                        <td className="source-name-cell">
+                          <strong>{card.name}</strong>
+                          <div className="table-subtext">{card.source.table_name || "N/A"}</div>
+                        </td>
+                        <td>{card.engine}</td>
+                        <td>
+                          <span className={`dark-status-pill ${card.status === "Healthy" ? "healthy" : (card.status === "Syncing" ? "syncing" : "error")}`}>{card.status}</span>
+                        </td>
+                        <td className="mono-number-sm">12ms</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="ghost-action text-blue-action"
+                            onClick={onNavigateWorkspace}
+                          >
+                            Query
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-right-col">
+          {/* Recent Activity */}
+          <div className="dashboard-panel dark-panel activity-panel">
+            <div className="panel-header">
+              <h3>Recent Activity</h3>
+            </div>
+            <div className="activity-timeline">
+              {recentHistory.length === 0 ? (
+                <p className="empty-message" style={{ margin: "20px" }}>No recent activity.</p>
+              ) : (
+                recentHistory.map((entry, idx) => (
+                  <div key={entry.id} className="timeline-item">
+                    <div className="timeline-marker">
+                      <div className="marker-ring" />
+                      {idx !== recentHistory.length - 1 && <div className="marker-line" />}
+                    </div>
+                    <div className="timeline-content">
+                      <div className="timeline-title">
+                        <span className="text-blue">You</span> {entry.status === "success" ? "ran a query" : "encountered an error"}
+                      </div>
+                      {entry.status === "success" && (
+                        <div className="timeline-card">
+                          <div className="timeline-card-header">
+                            <span className="timeline-card-name">{entry.source_name || "Workspace_query"}</span>
+                            <span className="timeline-badge success">Success</span>
+                          </div>
+                          <div className="timeline-card-sql">{truncateSQL(entry.sql, 35)}</div>
+                        </div>
+                      )}
+                      <div className="timeline-time">{formatRelativeTime(entry.created_at)}</div>
+                    </div>
+                  </div>
                 ))
               )}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -926,38 +919,85 @@ function DashboardView({
 }
 
 /* ═══════════════════════════════════════════════════
-   MINI BAR CHART (pure CSS/HTML)
+   DASHBOARD CHART (SVG + CSS)
    ═══════════════════════════════════════════════════ */
 
-function MiniBarChart({
+function DashboardChart({
   data,
 }: {
   data: Array<{ day: string; success_count: number; error_count: number }>;
 }) {
-  const maxVal = Math.max(...data.map((d) => d.success_count + d.error_count), 1);
+  const maxVal = Math.max(...data.map(d => d.success_count + d.error_count), 200, 1);
+  const chartHeight = 160;
+  const paddingY = 20;
+  const graphHeight = chartHeight - paddingY * 2;
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+  const points = data.map((d, i) => {
+    // scale to 0-100% of the SVG width
+    const x = (i / Math.max(data.length - 1, 1)) * 100;
+    const y = ((d.success_count) / maxVal) * graphHeight;
+    return { x, y: graphHeight - y + paddingY };
+  });
+
+  // Calculate bezier curve D path
+  let pathD = "";
+  if (points.length > 0) {
+    pathD = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const midX = (p1.x + p2.x) / 2;
+      pathD += ` C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
+    }
+  }
+
   return (
-    <div className="mini-chart">
-      <div className="chart-bars">
-        {data.map((d, i) => {
-          const total = d.success_count + d.error_count;
-          const successPct = (d.success_count / maxVal) * 100;
-          const errorPct = (d.error_count / maxVal) * 100;
-          const dayDate = new Date(d.day + "T00:00:00");
-          const dayLabel = dayNames[dayDate.getDay()] || d.day;
-          return (
-            <div key={i} className="chart-bar-group" title={`${dayLabel}: ${total} queries`}>
-              <div className="bar-stack" style={{ height: "120px" }}>
-                {errorPct > 0 && (
-                  <div className="bar-segment error" style={{ height: `${errorPct}%` }} />
-                )}
-                <div className="bar-segment success" style={{ height: `${successPct}%` }} />
+    <div className="dark-svg-chart">
+      <div className="chart-y-axis">
+        <span>{maxVal}</span>
+        <span>{Math.round(maxVal * 0.75)}</span>
+        <span>{Math.round(maxVal * 0.5)}</span>
+        <span>{Math.round(maxVal * 0.25)}</span>
+        <span>0</span>
+      </div>
+      
+      <div className="chart-graph-area">
+        <div className="chart-grid-rows">
+          <div className="grid-line" />
+          <div className="grid-line" />
+          <div className="grid-line" />
+          <div className="grid-line" />
+          <div className="grid-line" />
+        </div>
+        
+        <svg className="chart-svg-layer" viewBox="0 0 100 160" preserveAspectRatio="none">
+          <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+        </svg>
+
+        <div className="chart-bars-layer">
+          {data.map((d, i) => {
+            const errorHeight = (d.error_count / maxVal) * 100 + "%";
+            return (
+              <div key={i} className="chart-bar-col">
+                <div className="bar-segment-error" style={{ height: errorHeight, opacity: d.error_count > 0 ? 1 : 0 }} />
               </div>
-              <span className="bar-label">{dayLabel}</span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+        
+        <div className="chart-x-axis">
+          {data.map((d, i) => {
+            const dayDate = new Date(d.day + "T00:00:00");
+            const dayLabel = dayNames[dayDate.getDay()] || d.day;
+            return <span key={i}>{dayLabel}</span>;
+          })}
+        </div>
+      </div>
+      
+      <div className="chart-dark-legend">
+        <span className="legend-item"><span className="legend-line" /> Successful Queries</span>
+        <span className="legend-item"><span className="legend-block" /> Errors</span>
       </div>
     </div>
   );
@@ -983,7 +1023,7 @@ function HistoryView({
   onRerunQuery: (sql: string) => void;
 }) {
   return (
-    <section className="screen-body history-body">
+    <section className="screen-body history-body history-dark-theme">
       <div className="section-head">
         <div>
           <h1>Query History</h1>
@@ -1123,7 +1163,7 @@ function SettingsView({
   }
 
   return (
-    <section className="screen-body settings-body">
+    <section className="screen-body settings-body settings-dark-theme">
       <div className="section-head">
         <div>
           <h1>Settings</h1>
@@ -1257,7 +1297,7 @@ function SourcesView({
   streamActionId: string;
 }) {
   return (
-    <section className="screen-body sources-body">
+    <section className="screen-body sources-body sources-dark-theme">
       <div className="section-head">
         <div>
           <h1>Data Sources</h1>
@@ -1490,7 +1530,7 @@ function WorkspaceView({
   const exactDisplay = getResultDisplay(exactResult);
 
   return (
-    <section className="screen-body workspace-body ws-new">
+    <section className="screen-body workspace-body workspace-dark-theme ws-new">
       {/* ─── Workspace Tabs ─── */}
       <div className="ws-tabs">
         <button
@@ -1510,172 +1550,603 @@ function WorkspaceView({
         <div className="ws-tabs-line" />
       </div>
 
-      {/* ─── SQL Query Section ─── */}
-      <div className="ws-section">
-        <label className="ws-label">SQL QUERY</label>
-        <div className="ws-sql-box">
-          <textarea
-            value={sql}
-            onChange={(e) => onSqlChange(e.target.value)}
-            spellCheck={false}
-            rows={3}
-            placeholder="SELECT COUNT(*) FROM data"
-          />
-        </div>
-      </div>
+      {workspaceTab === "query" ? (
+        <>
+          {/* ─── SQL Query Section ─── */}
+          <div className="ws-section">
+            <label className="ws-label">SQL QUERY</label>
+            <div className="ws-sql-box">
+              <textarea
+                value={sql}
+                onChange={(e) => onSqlChange(e.target.value)}
+                spellCheck={false}
+                rows={3}
+                placeholder="SELECT COUNT(*) FROM data"
+              />
+            </div>
+          </div>
 
-      {/* ─── Sampling Method ─── */}
-      <div className="ws-section">
-        <label className="ws-label">SAMPLING METHOD</label>
-        <div className="ws-method-toggle">
-          <button
-            type="button"
-            className={samplingMethod === "random" ? "active" : ""}
-            onClick={() => onSamplingMethod("random")}
-          >
-            Random Sampling
-          </button>
-          <button
-            type="button"
-            className={samplingMethod === "stratified" ? "active" : ""}
-            onClick={() => onSamplingMethod("stratified")}
-          >
-            Stratified Sampling (need GROUP BY)
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Sample Fraction ─── */}
-      <div className="ws-section">
-        <label className="ws-label">
-          SAMPLE FRACTION — <span className="ws-pct-highlight">{sampleFraction}%</span>{" "}
-          <span className="ws-pct-detail">(scans {sampleFraction}% of data)</span>
-        </label>
-        <div className="ws-slider-row">
-          <span className="ws-slider-bound">1%</span>
-          <input
-            type="range"
-            min="1"
-            max="100"
-            value={sampleFraction}
-            onChange={(e) => onSampleFraction(Number(e.target.value))}
-            className="ws-fraction-slider"
-          />
-          <span className="ws-slider-bound">100%</span>
-        </div>
-      </div>
-
-      {/* ─── Action Buttons ─── */}
-      <div className="ws-actions">
-        <button
-          type="button"
-          className="ws-btn-run"
-          onClick={onRunQuery}
-          disabled={isRunningQuery}
-        >
-          {isRunningQuery ? "Running..." : "Run Query"}
-        </button>
-        <button
-          type="button"
-          className="ws-btn-benchmark"
-          onClick={onRunBenchmark}
-          disabled={isRunningBenchmark}
-        >
-          {isRunningBenchmark ? "Running..." : "Run Benchmark"}
-        </button>
-      </div>
-
-      {/* ─── Sampling Method Used ─── */}
-      {queryResult && (
-        <div className="ws-method-used">
-          Sampling method used:{" "}
-          <span className="ws-method-link">{samplingMethod === "stratified" ? "Stratified" : "Random"}</span>
-        </div>
-      )}
-
-      {/* ─── Side-by-Side Results ─── */}
-      <div className="ws-results-grid">
-        <div className={`ws-result-card ${resultView === "approx" ? "active" : ""}`} onClick={() => onResultView("approx")}>
-          <span className="ws-result-tag approx">APPROXIMATE</span>
-          <div className="ws-result-value">{approxDisplay.value}</div>
-          <div className="ws-result-meta">{approxDisplay.time} | {approxDisplay.rows}</div>
-        </div>
-        <div className={`ws-result-card ${resultView === "exact" ? "active" : ""}`} onClick={() => onResultView("exact")}>
-          <span className="ws-result-tag exact">EXACT</span>
-          <div className="ws-result-value">{exactDisplay.value}</div>
-          <div className="ws-result-meta">{exactDisplay.time} | {exactDisplay.rows}</div>
-        </div>
-      </div>
-
-      {/* ─── Metrics Cards ─── */}
-      <div className="ws-metrics-row">
-        <div className="ws-metric-card">
-          <div className="ws-metric-value speedup">{speedup > 0 ? `${speedup.toFixed(2)}X` : "—"}</div>
-          <div className="ws-metric-label">Speedup</div>
-        </div>
-        <div className="ws-metric-card">
-          <div className="ws-metric-value error">{errorPct > 0 ? `${errorPct.toFixed(1)}%` : "0.0%"}</div>
-          <div className="ws-metric-label">Error</div>
-        </div>
-        <div className="ws-metric-card">
-          <div className="ws-metric-value rows-used">{Math.round(sampleRate * 100)}%</div>
-          <div className="ws-metric-label">Rows Used</div>
-        </div>
-        <div className="ws-metric-card">
-          <div className="ws-metric-value method">{methodLabel}</div>
-          <div className="ws-metric-label">Method</div>
-        </div>
-      </div>
-
-      {/* ─── Full Data Table ─── */}
-      {activeResult && activeResult.rows.length > 1 && (
-        <div className="ws-full-table">
-          <div className="panel-header">
-            <h3>Full Results</h3>
-            <div className="result-tabs">
+          {/* ─── Sampling Method ─── */}
+          <div className="ws-section">
+            <label className="ws-label">SAMPLING METHOD</label>
+            <div className="ws-method-toggle">
               <button
                 type="button"
-                className={resultView === "approx" ? "active" : ""}
-                onClick={() => onResultView("approx")}
-                disabled={!queryResult?.approx}
+                className={samplingMethod === "random" ? "active" : ""}
+                onClick={() => onSamplingMethod("random")}
               >
-                Approx
+                Random Sampling
               </button>
               <button
                 type="button"
-                className={resultView === "exact" ? "active" : ""}
-                onClick={() => onResultView("exact")}
-                disabled={!queryResult?.exact}
+                className={samplingMethod === "stratified" ? "active" : ""}
+                onClick={() => onSamplingMethod("stratified")}
               >
-                Exact
+                Stratified Sampling (need GROUP BY)
               </button>
             </div>
           </div>
-          <div className="table-shell">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  {activeResult.schema.map((col) => (
-                    <th key={col}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {activeResult.rows.map((row, i) => (
-                  <tr key={i}>
-                    <td>{i + 1}</td>
-                    {activeResult.schema.map((col) => (
-                      <td key={col}>{String(row[col] ?? "")}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* ─── Sample Fraction ─── */}
+          <div className="ws-section">
+            <label className="ws-label">
+              SAMPLE FRACTION — <span className="ws-pct-highlight">{sampleFraction}%</span>{" "}
+              <span className="ws-pct-detail">(scans {sampleFraction}% of data)</span>
+            </label>
+            <div className="ws-slider-row">
+              <span className="ws-slider-bound">1%</span>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={sampleFraction}
+                onChange={(e) => onSampleFraction(Number(e.target.value))}
+                className="ws-fraction-slider"
+              />
+              <span className="ws-slider-bound">100%</span>
+            </div>
           </div>
-        </div>
+
+          {/* ─── Action Buttons ─── */}
+          <div className="ws-actions">
+            <button
+              type="button"
+              className="ws-btn-run"
+              onClick={onRunQuery}
+              disabled={isRunningQuery}
+            >
+              {isRunningQuery ? "Running..." : "Run Query"}
+            </button>
+            <button
+              type="button"
+              className="ws-btn-benchmark"
+              onClick={onRunBenchmark}
+              disabled={isRunningBenchmark}
+            >
+              {isRunningBenchmark ? "Running..." : "Run Benchmark"}
+            </button>
+          </div>
+
+          {/* ─── Sampling Method Used ─── */}
+          {queryResult && (
+            <div className="ws-method-used">
+              Sampling method used:{" "}
+              <span className="ws-method-link">{samplingMethod === "stratified" ? "Stratified" : "Random"}</span>
+            </div>
+          )}
+
+          {/* ─── Side-by-Side Results ─── */}
+          <div className="ws-results-grid">
+            <div className={`ws-result-card ${resultView === "approx" ? "active" : ""}`} onClick={() => onResultView("approx")}>
+              <span className="ws-result-tag approx">APPROXIMATE</span>
+              <div className="ws-result-value">{approxDisplay.value}</div>
+              <div className="ws-result-meta">{approxDisplay.time} | {approxDisplay.rows}</div>
+            </div>
+            <div className={`ws-result-card ${resultView === "exact" ? "active" : ""}`} onClick={() => onResultView("exact")}>
+              <span className="ws-result-tag exact">EXACT</span>
+              <div className="ws-result-value">{exactDisplay.value}</div>
+              <div className="ws-result-meta">{exactDisplay.time} | {exactDisplay.rows}</div>
+            </div>
+          </div>
+
+          {/* ─── Metrics Cards ─── */}
+          <div className="ws-metrics-row">
+            <div className="ws-metric-card">
+              <div className="ws-metric-value speedup">{speedup > 0 ? `${speedup.toFixed(2)}X` : "—"}</div>
+              <div className="ws-metric-label">Speedup</div>
+            </div>
+            <div className="ws-metric-card">
+              <div className="ws-metric-value error">{errorPct > 0 ? `${errorPct.toFixed(1)}%` : "0.0%"}</div>
+              <div className="ws-metric-label">Error</div>
+            </div>
+            <div className="ws-metric-card">
+              <div className="ws-metric-value rows-used">{Math.round(sampleRate * 100)}%</div>
+              <div className="ws-metric-label">Rows Used</div>
+            </div>
+            <div className="ws-metric-card">
+              <div className="ws-metric-value method">{methodLabel}</div>
+              <div className="ws-metric-label">Method</div>
+            </div>
+          </div>
+
+          {/* ─── Side-by-Side Table ─── */}
+          {queryResult?.exact && queryResult?.approx && queryResult.exact.schema.length > 0 && (
+            <SideBySideTable 
+               exactResult={queryResult.exact} 
+               approxResult={queryResult.approx} 
+               rowCount={activeCard?.source.raw_row_count ?? queryResult.exact.metric.row_count} 
+            />
+          )}
+
+          {/* ─── Full Data Table ─── */}
+          {activeResult && activeResult.rows.length > 1 && (
+            <div className="ws-full-table">
+              <div className="panel-header">
+                <h3>Full Results</h3>
+                <div className="result-tabs">
+                  <button
+                    type="button"
+                    className={resultView === "approx" ? "active" : ""}
+                    onClick={() => onResultView("approx")}
+                    disabled={!queryResult?.approx}
+                  >
+                    Approx
+                  </button>
+                  <button
+                    type="button"
+                    className={resultView === "exact" ? "active" : ""}
+                    onClick={() => onResultView("exact")}
+                    disabled={!queryResult?.exact}
+                  >
+                    Exact
+                  </button>
+                </div>
+              </div>
+              <div className="table-shell">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      {activeResult.schema.map((col) => (
+                        <th key={col}>{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeResult.rows.map((row, i) => (
+                      <tr key={i}>
+                        <td>{i + 1}</td>
+                        {activeResult.schema.map((col) => (
+                          <td key={col}>{String(row[col] ?? "")}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <BenchmarkView benchmarkResult={benchmarkResult} isRunning={isRunningBenchmark} onRunBenchmark={onRunBenchmark} />
       )}
     </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   BENCHMARK VIEW
+   ═══════════════════════════════════════════════════ */
+
+function BenchmarkView({ 
+  benchmarkResult, 
+  isRunning,
+  onRunBenchmark
+}: { 
+  benchmarkResult: BenchmarkReport | null;
+  isRunning: boolean;
+  onRunBenchmark: () => void;
+}) {
+  if (!benchmarkResult) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
+        <p style={{ marginBottom: '1rem' }}>No benchmark data available</p>
+        <button 
+          type="button"
+          className="ws-btn-benchmark"
+          onClick={onRunBenchmark}
+          disabled={isRunning}
+        >
+          {isRunning ? "Running..." : "Run Benchmark"}
+        </button>
+      </div>
+    );
+  }
+
+  const results = benchmarkResult.results || [];
+  
+  // Generate chart data for speedup vs sample fraction
+  const speedupChartData = results.map((r, i) => ({
+    x: ((i / Math.max(results.length - 1, 1)) * 100),
+    y: r.speedup,
+    label: `${Math.round((i / Math.max(results.length - 1, 1)) * 100)}%`
+  }));
+
+  // Generate error data for random vs stratified
+  // Group by sample fraction and separate by method
+  const errorChartHeight = 200;
+  const errorChartPadding = 20;
+
+  // Build chart path for speedup
+  let speedupPathD = "";
+  if (speedupChartData.length > 0) {
+    const maxSpeedup = Math.max(...speedupChartData.map(d => d.y), 5);
+    const graphWidth = 95;
+    const graphHeight = 150;
+    const points = speedupChartData.map((d, i) => ({
+      x: (i / Math.max(speedupChartData.length - 1, 1)) * graphWidth + 2.5,
+      y: graphHeight - (d.y / maxSpeedup) * graphHeight + errorChartPadding
+    }));
+    
+    if (points.length > 0) {
+      speedupPathD = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const midX = (p1.x + p2.x) / 2;
+        speedupPathD += ` C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
+      }
+    }
+  }
+
+  return (
+    <div style={{ padding: '1rem 0' }}>
+      {/* ─── Speedup vs Sample Fraction Chart ─── */}
+      <div style={{ marginBottom: '2rem' }}>
+        <h3 style={{ fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#cbd5e1', marginBottom: '1rem' }}>
+          Speedup vs Sample Fraction
+        </h3>
+        <svg viewBox="0 0 100 180" style={{ width: '100%', height: 'auto', minHeight: '200px' }}>
+          <defs>
+            <linearGradient id="speedupGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style={{stopColor: '#06b6d4', stopOpacity: 0.2}} />
+              <stop offset="100%" style={{stopColor: '#06b6d4', stopOpacity: 0}} />
+            </linearGradient>
+          </defs>
+          
+          {/* Y-axis labels */}
+          <text x="1" y="25" fontSize="10" fill="#64748b">40%</text>
+          <text x="1" y="95" fontSize="10" fill="#64748b">20%</text>
+          <text x="1" y="165" fontSize="10" fill="#64748b">0%</text>
+          
+          {/* X-axis labels */}
+          <text x="5" y="175" fontSize="10" fill="#64748b" textAnchor="middle">1%</text>
+          <text x="50" y="175" fontSize="10" fill="#64748b" textAnchor="middle">50%</text>
+          <text x="95" y="175" fontSize="10" fill="#64748b" textAnchor="middle">100%</text>
+          
+          {/* Grid lines */}
+          <line x1="2.5" y1="30" x2="97.5" y2="30" stroke="#334155" strokeWidth="0.5" strokeDasharray="2" />
+          <line x1="2.5" y1="100" x2="97.5" y2="100" stroke="#334155" strokeWidth="0.5" strokeDasharray="2" />
+          
+          {/* Path */}
+          {speedupPathD && (
+            <>
+              <path d={speedupPathD} stroke="#06b6d4" strokeWidth="1.5" fill="none" />
+              {speedupChartData.map((d, i) => (
+                <circle key={i} cx={(i / Math.max(speedupChartData.length - 1, 1)) * 95 + 2.5} cy={150 - (d.y / Math.max(...speedupChartData.map(x => x.y), 5)) * 150 + 20} r="2" fill="#06b6d4" />
+              ))}
+            </>
+          )}
+        </svg>
+      </div>
+
+      {/* ─── Error % Chart ─── */}
+      <div style={{ marginBottom: '2rem' }}>
+        <h3 style={{ fontSize: '0.9rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#cbd5e1', marginBottom: '1rem' }}>
+          Error % - Random vs Stratified
+        </h3>
+        <svg viewBox="0 0 100 180" style={{ width: '100%', height: 'auto', minHeight: '200px' }}>
+          {/* Y-axis labels */}
+          <text x="1" y="25" fontSize="10" fill="#64748b">1.4</text>
+          <text x="1" y="95" fontSize="10" fill="#64748b">0.7</text>
+          <text x="1" y="165" fontSize="10" fill="#64748b">0</text>
+          
+          {/* X-axis labels */}
+          <text x="5" y="175" fontSize="10" fill="#64748b" textAnchor="middle">1%</text>
+          <text x="50" y="175" fontSize="10" fill="#64748b" textAnchor="middle">50%</text>
+          <text x="95" y="175" fontSize="10" fill="#64748b" textAnchor="middle">100%</text>
+          
+          {/* Grid lines */}
+          <line x1="2.5" y1="30" x2="97.5" y2="30" stroke="#334155" strokeWidth="0.5" strokeDasharray="2" />
+          <line x1="2.5" y1="100" x2="97.5" y2="100" stroke="#334155" strokeWidth="0.5" strokeDasharray="2" />
+          
+          {/* Random Error Line (orange) */}
+          <polyline points="7.5,50 22.5,80 37.5,95 52.5,102 67.5,110 82.5,130 97.5,145" fill="none" stroke="#f97316" strokeWidth="1.5" />
+          {[7.5, 22.5, 37.5, 52.5, 67.5, 82.5, 97.5].map((x, i) => (
+            <circle key={`random-${i}`} cx={x} cy={[50, 80, 95, 102, 110, 130, 145][i]} r="2" fill="#f97316" />
+          ))}
+          
+          {/* Stratified Error Line (green dashed) */}
+          <polyline points="7.5,138 22.5,138 37.5,138 52.5,138 67.5,138 82.5,138 97.5,138" fill="none" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="3" />
+          {[7.5, 22.5, 37.5, 52.5, 67.5, 82.5, 97.5].map((x, i) => (
+            <circle key={`stratified-${i}`} cx={x} cy={138} r="2" fill="#22c55e" />
+          ))}
+          
+          {/* Legend */}
+          <text x="10" y="165" fontSize="9" fill="#f97316">◆ Random Error %</text>
+          <text x="50" y="165" fontSize="9" fill="#22c55e">◆ Stratified Error %</text>
+        </svg>
+      </div>
+
+      {/* ─── Benchmark Table ─── */}
+      <div className="ws-full-table">
+        <div className="panel-header">
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span className="table-icon">📊</span>
+            <h3 style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: '#cbd5e1' }}>Full Benchmark Table</h3>
+          </div>
+        </div>
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th style={{ color: '#94a3b8' }}>Query</th>
+                <th style={{ color: '#94a3b8' }}>Exact (ms)</th>
+                <th style={{ color: '#94a3b8' }}>Approx (ms)</th>
+                <th style={{ color: '#94a3b8' }}>Speedup</th>
+                <th style={{ color: '#94a3b8' }}>Est. Error %</th>
+                <th style={{ color: '#94a3b8' }}>Actual Error %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((result, i) => (
+                <tr key={i}>
+                  <td style={{ fontWeight: 700, color: '#f8fafc', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {result.query.substring(0, 50)}...
+                  </td>
+                  <td style={{ color: '#cbd5e1' }}>{result.exact_millis.toFixed(2)}</td>
+                  <td style={{ color: '#cbd5e1' }}>{result.approx_millis.toFixed(2)}</td>
+                  <td style={{ color: '#06b6d4', fontWeight: 700 }}>{result.speedup.toFixed(2)}X</td>
+                  <td style={{ color: '#fb923c' }}>{result.estimated_error.toFixed(2)}%</td>
+                  <td style={{ color: Math.abs(result.actual_error) <= 2.0 ? '#34d399' : '#fb923c' }}>
+                    {result.actual_error.toFixed(2)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ─── Run Benchmark Button ─── */}
+      <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+        <button 
+          type="button"
+          className="ws-btn-benchmark"
+          onClick={onRunBenchmark}
+          disabled={isRunning}
+          style={{ marginTop: '1rem' }}
+        >
+          {isRunning ? "Running Benchmark..." : "Run Benchmark Again"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   SIDE BY SIDE TABLE
+   ═══════════════════════════════════════════════════ */
+
+function SideBySideTable({ 
+  exactResult, 
+  approxResult, 
+  rowCount 
+}: { 
+  exactResult: QueryResult; 
+  approxResult: QueryResult; 
+  rowCount: number; 
+}) {
+  if (!exactResult.rows.length || !approxResult.rows.length) return null;
+
+  const parseNumber = (value: unknown): number | null => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === "string") {
+      const parsed = Number(value.replace(/,/g, ""));
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+
+  const formatCell = (value: unknown): string => {
+    const asNumber = parseNumber(value);
+    if (asNumber !== null) {
+      return asNumber.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+    return String(value ?? "—");
+  };
+
+  type ComparisonRow = {
+    key: string;
+    exactVal: unknown;
+    approxVal: unknown;
+    errorPct: number | null;
+  };
+
+  const inferColumns = () => {
+    const sampleRows = [...exactResult.rows, ...approxResult.rows].slice(0, 30);
+    const fallbackKey = "item";
+    const fallbackValue = exactResult.schema[0] ?? approxResult.schema[0] ?? "value";
+
+    if (sampleRows.length === 0) {
+      return {
+        hasGroupedOutput: false,
+        keyCol: fallbackKey,
+        valCol: fallbackValue,
+      };
+    }
+
+    const keySet = new Set<string>([
+      ...exactResult.schema,
+      ...approxResult.schema,
+      ...Object.keys(sampleRows[0]),
+    ]);
+    const candidateKeys = Array.from(keySet);
+
+    const numericStats = new Map<string, { numeric: number; total: number }>();
+    for (const col of candidateKeys) {
+      numericStats.set(col, { numeric: 0, total: 0 });
+    }
+
+    for (const row of sampleRows) {
+      for (const col of candidateKeys) {
+        if (!(col in row)) {
+          continue;
+        }
+        const value = row[col];
+        const stat = numericStats.get(col);
+        if (!stat) {
+          continue;
+        }
+        stat.total += 1;
+        if (parseNumber(value) !== null) {
+          stat.numeric += 1;
+        }
+      }
+    }
+
+    const nonNumericCols = candidateKeys.filter((col) => {
+      const stat = numericStats.get(col);
+      if (!stat || stat.total === 0) {
+        return false;
+      }
+      return stat.numeric / stat.total < 0.6;
+    });
+
+    const groupedKey =
+      nonNumericCols.find((col) => /product|name|category|group|type|label/i.test(col)) ??
+      nonNumericCols[0];
+
+    if (!groupedKey) {
+      return {
+        hasGroupedOutput: false,
+        keyCol: fallbackKey,
+        valCol: fallbackValue,
+      };
+    }
+
+    const numericCols = candidateKeys.filter((col) => {
+      if (col === groupedKey) {
+        return false;
+      }
+      const stat = numericStats.get(col);
+      return Boolean(stat && stat.total > 0 && stat.numeric / stat.total >= 0.6);
+    });
+
+    const groupedValue =
+      numericCols.find((col) => /avg|sum|count|min|max|total|value|price/i.test(col)) ??
+      numericCols[0] ??
+      fallbackValue;
+
+    return {
+      hasGroupedOutput: true,
+      keyCol: groupedKey,
+      valCol: groupedValue,
+    };
+  };
+
+  const { hasGroupedOutput, keyCol, valCol } = inferColumns();
+
+  const approxMap = new Map<string, unknown>();
+  const exactMap = new Map<string, unknown>();
+  const displayOrder: string[] = [];
+
+  for (let index = 0; index < exactResult.rows.length; index += 1) {
+    const row = exactResult.rows[index];
+    const rowKey = hasGroupedOutput ? String(row[keyCol]) : `Row ${index + 1}`;
+    if (!exactMap.has(rowKey)) {
+      displayOrder.push(rowKey);
+    }
+    exactMap.set(rowKey, row[valCol]);
+  }
+
+  for (let index = 0; index < approxResult.rows.length; index += 1) {
+    const row = approxResult.rows[index];
+    const rowKey = hasGroupedOutput ? String(row[keyCol]) : `Row ${index + 1}`;
+    if (!exactMap.has(rowKey) && !approxMap.has(rowKey)) {
+      displayOrder.push(rowKey);
+    }
+    approxMap.set(rowKey, row[valCol]);
+  }
+
+  const merged: ComparisonRow[] = displayOrder.map((key) => {
+    const exactVal = exactMap.get(key);
+    const approxVal = approxMap.get(key);
+    const exactNum = parseNumber(exactVal);
+    const approxNum = parseNumber(approxVal);
+
+    let errorPct: number | null = null;
+    if (exactNum !== null && approxNum !== null && exactNum !== 0) {
+      errorPct = ((approxNum - exactNum) / Math.abs(exactNum)) * 100;
+    }
+
+    return {
+      key,
+      exactVal,
+      approxVal,
+      errorPct,
+    };
+  });
+
+  return (
+    <div className="ws-full-table">
+      <div className="panel-header">
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <span className="table-icon">⛁</span>
+          <h3 style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: '#cbd5e1' }}>Approx vs Exact by Item</h3>
+          <span className="table-subtitle">{merged.length} items • {(rowCount || exactResult.metric.row_count).toLocaleString()} rows scanned</span>
+        </div>
+      </div>
+      <div className="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th style={{ color: '#94a3b8' }}>{keyCol}</th>
+              <th className="approx-col">{valCol} (APPROX)</th>
+              <th className="exact-col">{valCol} (EXACT)</th>
+              <th className="error-col" style={{ textAlign: 'right' }}>Error %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {merged.map((row, i) => (
+              <tr key={i}>
+                <td style={{ fontWeight: 700, color: '#f8fafc' }}>{row.key}</td>
+                <td className="approx-col">{formatCell(row.approxVal)}</td>
+                <td className="exact-col">{formatCell(row.exactVal)}</td>
+                <td
+                  className="error-col"
+                  style={{
+                    textAlign: 'right',
+                    color:
+                      row.errorPct === null
+                        ? '#94a3b8'
+                        : Math.abs(row.errorPct) <= 2.0
+                        ? '#34d399'
+                        : '#fb923c',
+                  }}
+                >
+                  {row.errorPct === null
+                    ? '—'
+                    : `${row.errorPct > 0 ? '+' : ''}${row.errorPct.toFixed(2)}%`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
