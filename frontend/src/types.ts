@@ -1,5 +1,6 @@
 export type SourceKind = "csv" | "postgres";
 export type QueryMode = "exact" | "approx" | "compare";
+export type SamplingMethod = "uniform" | "stratified";
 
 export interface SourceConfig {
   id: string;
@@ -15,6 +16,7 @@ export interface SourceConfig {
   last_watermark?: string;
   poll_interval_seconds?: number;
   stratify_columns?: string[];
+  sampling_method?: SamplingMethod;
   sample_rate?: number;
   status?: string;
   last_sync_at?: string;

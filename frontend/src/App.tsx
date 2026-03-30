@@ -288,6 +288,7 @@ function SourceTable({ sources }: { sources: SourceConfig[] }) {
           <th>Type</th>
           <th>Table</th>
           <th>Status</th>
+          <th>Sampling</th>
           <th>Rows</th>
           <th>Sample Rows</th>
           <th>Sample Rate</th>
@@ -300,6 +301,7 @@ function SourceTable({ sources }: { sources: SourceConfig[] }) {
             <td>{source.kind}</td>
             <td>{source.table_name}</td>
             <td>{source.streaming ? "streaming" : source.status ?? "ready"}</td>
+            <td>{source.sampling_method ?? "uniform"}</td>
             <td>{source.raw_row_count}</td>
             <td>{source.sample_row_count}</td>
             <td>{Math.round((source.sample_rate ?? 0) * 100)}%</td>
