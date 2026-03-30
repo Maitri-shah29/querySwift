@@ -71,6 +71,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /sources/postgres/register", s.handleRegisterPostgres)
 	mux.HandleFunc("POST /sources/", s.handleSourceActions)
 	mux.HandleFunc("POST /queries/run", s.handleRunQuery)
+	mux.HandleFunc("GET /queries/history", s.handleQueryHistory)
+	mux.HandleFunc("GET /stats", s.handleStats)
 	mux.HandleFunc("GET /benchmarks", s.handleListBenchmarks)
 	mux.HandleFunc("POST /benchmarks/run", s.handleRunBenchmark)
 	return corsMiddleware(mux)
@@ -106,6 +108,19 @@ func (s *Server) initSchema() error {
             created_at TIMESTAMP NOT NULL,
             name TEXT NOT NULL,
             report_json TEXT NOT NULL
+        )`,
+		`CREATE TABLE IF NOT EXISTS aqe_query_history (
+            id TEXT PRIMARY KEY,
+            sql_text TEXT NOT NULL,
+            mode TEXT NOT NULL,
+            status TEXT NOT NULL,
+            source_name TEXT,
+            exact_millis DOUBLE,
+            approx_millis DOUBLE,
+            row_count BIGINT DEFAULT 0,
+            speedup DOUBLE,
+            error_pct DOUBLE,
+            created_at TIMESTAMP NOT NULL
         )`,
 	}
 	for _, statement := range statements {
@@ -304,10 +319,135 @@ func (s *Server) handleRunQuery(w http.ResponseWriter, r *http.Request) {
 
 	response, err := s.RunQuery(r.Context(), req)
 	if err != nil {
+		s.saveQueryHistory(req.SQL, string(req.Mode), "error", "", 0, 0, 0, 0, 0)
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+
+	// Save query to history
+	var exactMs, approxMs, speedup, errorPct float64
+	var rowCount int64
+	var sourceName string
+	if response.Exact != nil {
+		exactMs = response.Exact.Metric.ExecutionMillis
+		rowCount = response.Exact.Metric.RowCount
+	}
+	if response.Approx != nil {
+		approxMs = response.Approx.Metric.ExecutionMillis
+		speedup = response.Approx.Metric.Speedup
+		if response.Approx.Metric.ActualError != nil {
+			errorPct = *response.Approx.Metric.ActualError
+		}
+		if rowCount == 0 {
+			rowCount = response.Approx.Metric.RowCount
+		}
+	}
+	// Try to find source name from SQL
+	parsed, parseErr := ParseAnalyticalSQL(req.SQL)
+	if parseErr == nil {
+		if src, srcErr := s.findSourceByTable(parsed.Table); srcErr == nil {
+			sourceName = src.Name
+		}
+	}
+	s.saveQueryHistory(req.SQL, string(req.Mode), "success", sourceName, exactMs, approxMs, rowCount, speedup, errorPct)
+
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) saveQueryHistory(sqlText, mode, status, sourceName string, exactMs, approxMs float64, rowCount int64, speedup, errorPct float64) {
+	id := uuid.NewString()
+	_, _ = s.db.Exec(
+		`INSERT INTO aqe_query_history (id, sql_text, mode, status, source_name, exact_millis, approx_millis, row_count, speedup, error_pct, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, sqlText, mode, status, sourceName, exactMs, approxMs, rowCount, speedup, errorPct, time.Now().UTC(),
+	)
+}
+
+func (s *Server) handleQueryHistory(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.db.QueryContext(r.Context(), `SELECT id, sql_text, mode, status, source_name, exact_millis, approx_millis, row_count, speedup, error_pct, created_at FROM aqe_query_history ORDER BY created_at DESC LIMIT 100`)
+	if err != nil {
+		writeJSON(w, http.StatusOK, []any{})
+		return
+	}
+	defer rows.Close()
+
+	type HistoryEntry struct {
+		ID          string  `json:"id"`
+		SQL         string  `json:"sql"`
+		Mode        string  `json:"mode"`
+		Status      string  `json:"status"`
+		SourceName  string  `json:"source_name"`
+		ExactMillis float64 `json:"exact_millis"`
+		ApproxMillis float64 `json:"approx_millis"`
+		RowCount    int64   `json:"row_count"`
+		Speedup     float64 `json:"speedup"`
+		ErrorPct    float64 `json:"error_pct"`
+		CreatedAt   string  `json:"created_at"`
+	}
+
+	entries := []HistoryEntry{}
+	for rows.Next() {
+		var e HistoryEntry
+		var createdAt time.Time
+		if err := rows.Scan(&e.ID, &e.SQL, &e.Mode, &e.Status, &e.SourceName, &e.ExactMillis, &e.ApproxMillis, &e.RowCount, &e.Speedup, &e.ErrorPct, &createdAt); err != nil {
+			continue
+		}
+		e.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+		entries = append(entries, e)
+	}
+	writeJSON(w, http.StatusOK, entries)
+}
+
+func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
+	stats := map[string]any{
+		"total_queries":     0,
+		"avg_runtime_ms":    0.0,
+		"connected_sources": len(s.snapshotSources()),
+		"success_count":     0,
+		"error_count":       0,
+	}
+
+	var totalQueries int64
+	var avgRuntime float64
+	var successCount, errorCount int64
+
+	_ = s.db.QueryRowContext(r.Context(), `SELECT COUNT(*), COALESCE(AVG(CASE WHEN exact_millis > 0 THEN exact_millis ELSE approx_millis END), 0) FROM aqe_query_history`).Scan(&totalQueries, &avgRuntime)
+	_ = s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM aqe_query_history WHERE status = 'success'`).Scan(&successCount)
+	_ = s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM aqe_query_history WHERE status = 'error'`).Scan(&errorCount)
+
+	stats["total_queries"] = totalQueries
+	stats["avg_runtime_ms"] = math.Round(avgRuntime*100) / 100
+	stats["success_count"] = successCount
+	stats["error_count"] = errorCount
+
+	// Daily query counts for the last 7 days
+	dailyCounts := []map[string]any{}
+	dayRows, err := s.db.QueryContext(r.Context(), `
+		SELECT 
+			CAST(created_at AS DATE) AS day,
+			COUNT(*) FILTER (WHERE status = 'success') AS success_count,
+			COUNT(*) FILTER (WHERE status = 'error') AS error_count
+		FROM aqe_query_history 
+		WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+		GROUP BY CAST(created_at AS DATE)
+		ORDER BY day
+	`)
+	if err == nil {
+		defer dayRows.Close()
+		for dayRows.Next() {
+			var day time.Time
+			var sc, ec int64
+			if err := dayRows.Scan(&day, &sc, &ec); err == nil {
+				dailyCounts = append(dailyCounts, map[string]any{
+					"day":           day.Format("2006-01-02"),
+					"success_count": sc,
+					"error_count":   ec,
+				})
+			}
+		}
+	}
+	stats["daily_counts"] = dailyCounts
+
+	writeJSON(w, http.StatusOK, stats)
 }
 
 func (s *Server) handleListBenchmarks(w http.ResponseWriter, r *http.Request) {

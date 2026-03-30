@@ -1,4 +1,4 @@
-import type { BenchmarkReport, QueryMode, RunQueryResponse, SourceConfig } from "./types";
+import type { BenchmarkReport, DashboardStats, QueryHistoryEntry, QueryMode, RunQueryResponse, SourceConfig } from "./types";
 
 const API_BASE = import.meta.env.VITE_AQE_API_BASE ?? "http://127.0.0.1:8088";
 
@@ -23,6 +23,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const fetchSources = () => request<SourceConfig[]>("/sources");
 export const fetchBenchmarks = () => request<BenchmarkReport[]>("/benchmarks");
 export const fetchHealth = () => request<{ ok: boolean; source_count: number }>("/health");
+export const fetchStats = () => request<DashboardStats>("/stats");
+export const fetchQueryHistory = () => request<QueryHistoryEntry[]>("/queries/history");
 
 export const importCSV = (payload: Partial<SourceConfig>) =>
   request<SourceConfig>("/sources/csv/import", { method: "POST", body: JSON.stringify(payload) });

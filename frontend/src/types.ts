@@ -67,3 +67,30 @@ export interface BenchmarkReport {
   accuracy_target: number;
   results: BenchmarkQueryResult[];
 }
+
+export interface QueryHistoryEntry {
+  id: string;
+  sql: string;
+  mode: string;
+  status: string;
+  source_name: string;
+  exact_millis: number;
+  approx_millis: number;
+  row_count: number;
+  speedup: number;
+  error_pct: number;
+  created_at: string;
+}
+
+export interface DashboardStats {
+  total_queries: number;
+  avg_runtime_ms: number;
+  connected_sources: number;
+  success_count: number;
+  error_count: number;
+  daily_counts: Array<{
+    day: string;
+    success_count: number;
+    error_count: number;
+  }>;
+}
