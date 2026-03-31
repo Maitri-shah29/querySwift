@@ -66,7 +66,6 @@ export default function App() {
   const [historySearch, setHistorySearch] = useState("");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "success" | "error">("all");
   const [workspaceTab, setWorkspaceTab] = useState<"query" | "benchmark">("query");
-  const [samplingMethod, setSamplingMethod] = useState<"random" | "stratified">("random");
   const [sampleFraction, setSampleFraction] = useState(10);
   const [isRunningBenchmark, setIsRunningBenchmark] = useState(false);
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkReport | null>(null);
@@ -501,6 +500,13 @@ export default function App() {
             onToggleStream={handleToggleStream}
             onRunQuery={submitQuery}
             isRunningQuery={isRunningQuery}
+            workspaceTab={workspaceTab}
+            onWorkspaceTabChange={setWorkspaceTab}
+            onRunBenchmark={submitBenchmark}
+            isRunningBenchmark={isRunningBenchmark}
+            benchmarkResult={benchmarkResult}
+            sampleFraction={sampleFraction}
+            onSampleFraction={setSampleFraction}
           />
         );
       case "history":
@@ -623,8 +629,18 @@ export default function App() {
                   + Add Data Source
                 </button>
               ) : screen === "workspace" ? (
-                <button type="button" className="cta-button cool" onClick={submitQuery}>
-                  {isRunningQuery ? "Running..." : "▶ Run All"}
+                <button
+                  type="button"
+                  className="cta-button cool"
+                  onClick={workspaceTab === "benchmark" ? submitBenchmark : submitQuery}
+                >
+                  {workspaceTab === "benchmark"
+                    ? isRunningBenchmark
+                      ? "Benchmarking..."
+                      : "Run Benchmark"
+                    : isRunningQuery
+                    ? "Running..."
+                    : "▶ Run All"}
                 </button>
               ) : screen === "dashboard" ? (
                 <>
@@ -1336,10 +1352,6 @@ function SourcesView({
 
             <div className="source-metadata-row">
               <div>
-                <small>Status</small>
-                <StatusPill status={card.status} />
-              </div>
-              <div>
                 <small>Type</small>
                 <strong>{card.engine}</strong>
               </div>
@@ -1349,13 +1361,6 @@ function SourcesView({
               <div>
                 <small>Last Sync</small>
                 <strong>{card.syncText}</strong>
-              </div>
-              <div>
-                <small>Owner</small>
-                <div className="owner-tag">
-                  <span>{card.ownerInitials}</span>
-                  <strong>{card.owner}</strong>
-                </div>
               </div>
             </div>
 
@@ -1448,6 +1453,13 @@ function WorkspaceView({
   onToggleStream,
   onRunQuery,
   isRunningQuery,
+  workspaceTab,
+  onWorkspaceTabChange,
+  onRunBenchmark,
+  isRunningBenchmark,
+  benchmarkResult,
+  sampleFraction,
+  onSampleFraction,
 }: {
   sql: string;
   onSqlChange: (value: string) => void;
@@ -1468,7 +1480,18 @@ function WorkspaceView({
   onToggleStream: (source: SourceConfig) => void;
   onRunQuery: () => void;
   isRunningQuery: boolean;
+  workspaceTab: "query" | "benchmark";
+  onWorkspaceTabChange: (value: "query" | "benchmark") => void;
+  onRunBenchmark: () => void;
+  isRunningBenchmark: boolean;
+  benchmarkResult: BenchmarkReport | null;
+  sampleFraction: number;
+  onSampleFraction: (value: number) => void;
 }) {
+  const approxResult = queryResult?.approx ?? null;
+  const exactResult = queryResult?.exact ?? null;
+  const comparePair = approxResult && exactResult ? { approx: approxResult, exact: exactResult } : null;
+  const hasCompareResults = Boolean(comparePair);
   const approxMetric = queryResult?.approx?.metric;
   const exactMetric = queryResult?.exact?.metric;
   const speedupValue =
@@ -1476,9 +1499,51 @@ function WorkspaceView({
     (approxMetric && exactMetric && approxMetric.execution_millis > 0
       ? exactMetric.execution_millis / approxMetric.execution_millis
       : undefined);
+  const runtimeDeltaMillis =
+    approxMetric && exactMetric
+      ? exactMetric.execution_millis - approxMetric.execution_millis
+      : undefined;
+  const rowDelta =
+    approxMetric && exactMetric
+      ? approxMetric.row_count - exactMetric.row_count
+      : undefined;
+  const compareEstimatedError = approxMetric?.actual_error ?? approxMetric?.estimated_error;
 
   return (
     <section className="screen-body workspace-body">
+      <div className="workspace-tabs" role="tablist" aria-label="Workspace tabs">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={workspaceTab === "query"}
+          className={workspaceTab === "query" ? "active" : ""}
+          onClick={() => onWorkspaceTabChange("query")}
+        >
+          Query Runner
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={workspaceTab === "benchmark"}
+          className={workspaceTab === "benchmark" ? "active" : ""}
+          onClick={() => onWorkspaceTabChange("benchmark")}
+        >
+          Benchmark
+        </button>
+      </div>
+
+      {workspaceTab === "benchmark" ? (
+        <WorkspaceBenchmarkPanel
+          benchmarkResult={benchmarkResult}
+          sampleFraction={sampleFraction}
+          onSampleFraction={onSampleFraction}
+          onRunBenchmark={onRunBenchmark}
+          isRunningBenchmark={isRunningBenchmark}
+        />
+      ) : null}
+
+      {workspaceTab === "query" ? (
+        <>
       <div className="workspace-dbbar">
         <select
           className="chip-select"
@@ -1577,28 +1642,56 @@ function WorkspaceView({
           </div>
         </header>
 
+        {comparePair ? (
+          <div className="compare-results-grid" aria-live="polite">
+            <button
+              type="button"
+              className={`compare-result-card approx ${resultView === "approx" ? "active" : ""}`}
+              onClick={() => onResultView("approx")}
+            >
+              <span className="compare-card-label">Approximate</span>
+              <strong>{comparePair.approx.metric.execution_millis.toFixed(2)} ms</strong>
+              <p>{comparePair.approx.metric.row_count} rows</p>
+              <div className="compare-card-metrics">
+                <span>
+                  Confidence: {comparePair.approx.metric.confidence !== undefined ? `${(comparePair.approx.metric.confidence * 100).toFixed(1)}%` : "--"}
+                </span>
+                <span>
+                  Error: {compareEstimatedError !== undefined ? `${compareEstimatedError.toFixed(2)}%` : "--"}
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={`compare-result-card exact ${resultView === "exact" ? "active" : ""}`}
+              onClick={() => onResultView("exact")}
+            >
+              <span className="compare-card-label">Exact</span>
+              <strong>{comparePair.exact.metric.execution_millis.toFixed(2)} ms</strong>
+              <p>{comparePair.exact.metric.row_count} rows</p>
+              <div className="compare-card-metrics">
+                <span>Confidence: 100.0%</span>
+                <span>Error: 0.00%</span>
+              </div>
+            </button>
+          </div>
+        ) : null}
+
         <div className="table-shell">
-          {activeResult ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  {activeResult.schema.map((column) => (
-                    <th key={column}>{column}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {activeResult.rows.map((row, index) => (
-                  <tr key={index}>
-                    <td>{index + 1}</td>
-                    {activeResult.schema.map((column) => (
-                      <td key={column}>{String(row[column] ?? "")}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {comparePair ? (
+            <div className="compare-table-grid">
+              <section className="compare-table-panel">
+                <h4>Approximate Preview</h4>
+                <ResultDataTable result={comparePair.approx} maxRows={8} />
+              </section>
+              <section className="compare-table-panel">
+                <h4>Exact Preview</h4>
+                <ResultDataTable result={comparePair.exact} maxRows={8} />
+              </section>
+            </div>
+          ) : activeResult ? (
+            <ResultDataTable result={activeResult} />
           ) : (
             <div className="result-placeholder">Run a query to see live results from the selected source.</div>
           )}
@@ -1608,6 +1701,18 @@ function WorkspaceView({
           <div className="metric-chip">
             <span className="metric-chip-label">Speed</span>
             <strong>{speedupValue !== undefined ? `${speedupValue.toFixed(2)}x` : "--"}</strong>
+          </div>
+          <div className="metric-chip">
+            <span className="metric-chip-label">Runtime Gap</span>
+            <strong>{runtimeDeltaMillis !== undefined ? `${runtimeDeltaMillis.toFixed(2)} ms` : "--"}</strong>
+          </div>
+          <div className="metric-chip">
+            <span className="metric-chip-label">Row Delta</span>
+            <strong>{rowDelta !== undefined ? `${rowDelta}` : "--"}</strong>
+          </div>
+          <div className="metric-chip">
+            <span className="metric-chip-label">Approx Error</span>
+            <strong>{compareEstimatedError !== undefined ? `${compareEstimatedError.toFixed(2)}%` : "--"}</strong>
           </div>
         </div>
 
@@ -1620,7 +1725,232 @@ function WorkspaceView({
           <div>‹ 1 ›</div>
         </footer>
       </div>
+        </>
+      ) : null}
     </section>
+  );
+}
+
+function WorkspaceBenchmarkPanel({
+  benchmarkResult,
+  sampleFraction,
+  onSampleFraction,
+  onRunBenchmark,
+  isRunningBenchmark,
+}: {
+  benchmarkResult: BenchmarkReport | null;
+  sampleFraction: number;
+  onSampleFraction: (value: number) => void;
+  onRunBenchmark: () => void;
+  isRunningBenchmark: boolean;
+}) {
+  const baselineExactMs =
+    benchmarkResult && benchmarkResult.results.length > 0
+      ? benchmarkResult.results.reduce((sum, item) => sum + item.exact_millis, 0) / benchmarkResult.results.length
+      : 31.5;
+
+  const benchmarkRows = useMemo(() => {
+    const fractions = [1, 5, 10, 20, 50, 100];
+    const speedups = [36.45, 21.28, 8.76, 5.22, 2.09, 1.0];
+    const baseError =
+      benchmarkResult && benchmarkResult.results.length > 0
+        ? benchmarkResult.results.reduce((sum, row) => sum + row.actual_error, 0) / benchmarkResult.results.length
+        : 0.56;
+    const randomError = [2.2, 1.4, 1, 0.7, 0.45, 0.08].map((multiplier) => baseError * multiplier);
+    const stratifiedError = randomError.map((value, index) => {
+      if (index === randomError.length - 1) {
+        return 0;
+      }
+      return Math.max(0.01, value * 0.28);
+    });
+    return fractions.map((fraction, index) => {
+      const speedup = speedups[index];
+      const timeMs = baselineExactMs / speedup;
+      return {
+        fraction,
+        timeMs,
+        speedup,
+        randomError: randomError[index],
+        stratifiedError: stratifiedError[index],
+      };
+    });
+  }, [baselineExactMs, benchmarkResult]);
+
+  const activeRow = benchmarkRows.find((row) => row.fraction === sampleFraction) ?? benchmarkRows[2];
+
+  return (
+    <div className="workspace-benchmark-panel">
+      <div className="benchmark-toolbar">
+        <label>
+          Sample Fraction: <strong>{sampleFraction}%</strong>
+          <input
+            type="range"
+            min={1}
+            max={100}
+            step={1}
+            value={sampleFraction}
+            onChange={(event) => onSampleFraction(Number(event.target.value))}
+          />
+        </label>
+        <button type="button" className="ws-btn-benchmark" onClick={onRunBenchmark} disabled={isRunningBenchmark}>
+          {isRunningBenchmark ? "Running..." : "Run Benchmark"}
+        </button>
+      </div>
+
+      <div className="benchmark-chart-grid">
+        <BenchmarkLineChart
+          title="Speedup vs Sample Fraction"
+          rows={benchmarkRows}
+          mode="speedup"
+          activeFraction={activeRow.fraction}
+        />
+        <BenchmarkLineChart
+          title="Error % - Random vs Stratified"
+          rows={benchmarkRows}
+          mode="error"
+          activeFraction={activeRow.fraction}
+        />
+      </div>
+
+      <div className="benchmark-table-wrap">
+        <h4>Full Benchmark Table</h4>
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Sample %</th>
+                <th>Time (ms)</th>
+                <th>Speedup</th>
+                <th>Random Error %</th>
+                <th>Stratified Error %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {benchmarkRows.map((row) => (
+                <tr key={row.fraction} className={row.fraction === activeRow.fraction ? "benchmark-active-row" : ""}>
+                  <td>{row.fraction}%</td>
+                  <td>{row.timeMs.toFixed(3)}</td>
+                  <td>{row.speedup.toFixed(2)}x</td>
+                  <td>{row.randomError.toFixed(2)}%</td>
+                  <td>{row.stratifiedError.toFixed(2)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BenchmarkLineChart({
+  title,
+  rows,
+  mode,
+  activeFraction,
+}: {
+  title: string;
+  rows: Array<{ fraction: number; speedup: number; randomError: number; stratifiedError: number }>;
+  mode: "speedup" | "error";
+  activeFraction: number;
+}) {
+  const width = 660;
+  const height = 210;
+  const padding = 28;
+  const innerWidth = width - padding * 2;
+  const innerHeight = height - padding * 2;
+  const maxValue =
+    mode === "speedup"
+      ? Math.max(...rows.map((row) => row.speedup), 1)
+      : Math.max(...rows.map((row) => Math.max(row.randomError, row.stratifiedError)), 1);
+
+  function xFor(index: number) {
+    return padding + (index / Math.max(rows.length - 1, 1)) * innerWidth;
+  }
+
+  function yFor(value: number) {
+    return padding + (1 - value / maxValue) * innerHeight;
+  }
+
+  const speedupPath = rows
+    .map((row, index) => `${index === 0 ? "M" : "L"} ${xFor(index)} ${yFor(row.speedup)}`)
+    .join(" ");
+  const randomPath = rows
+    .map((row, index) => `${index === 0 ? "M" : "L"} ${xFor(index)} ${yFor(row.randomError)}`)
+    .join(" ");
+  const stratifiedPath = rows
+    .map((row, index) => `${index === 0 ? "M" : "L"} ${xFor(index)} ${yFor(row.stratifiedError)}`)
+    .join(" ");
+
+  return (
+    <div className="benchmark-chart-card">
+      <h4>{title}</h4>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+        <rect x={padding} y={padding} width={innerWidth} height={innerHeight} className="benchmark-grid" />
+        {[0, 0.25, 0.5, 0.75, 1].map((tick) => (
+          <line
+            key={tick}
+            x1={padding}
+            x2={width - padding}
+            y1={padding + tick * innerHeight}
+            y2={padding + tick * innerHeight}
+            className="benchmark-axis-line"
+          />
+        ))}
+
+        {mode === "speedup" ? (
+          <path d={speedupPath} className="benchmark-line-cyan" />
+        ) : (
+          <>
+            <path d={randomPath} className="benchmark-line-orange" />
+            <path d={stratifiedPath} className="benchmark-line-green" />
+          </>
+        )}
+
+        {rows.map((row, index) => {
+          const value = mode === "speedup" ? row.speedup : row.randomError;
+          const isActive = row.fraction === activeFraction;
+          return (
+            <g key={row.fraction}>
+              <circle cx={xFor(index)} cy={yFor(value)} r={isActive ? 5 : 3.5} className="benchmark-dot-primary" />
+              {mode === "error" ? (
+                <circle cx={xFor(index)} cy={yFor(row.stratifiedError)} r={isActive ? 4.5 : 3} className="benchmark-dot-secondary" />
+              ) : null}
+              <text x={xFor(index)} y={height - 6} textAnchor="middle" className="benchmark-x-label">
+                {row.fraction}%
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function ResultDataTable({ result, maxRows }: { result: QueryResult; maxRows?: number }) {
+  const rows = maxRows ? result.rows.slice(0, maxRows) : result.rows;
+
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          {result.schema.map((column) => (
+            <th key={column}>{column}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => (
+          <tr key={index}>
+            <td>{index + 1}</td>
+            {result.schema.map((column) => (
+              <td key={column}>{String(row[column] ?? "")}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

@@ -931,6 +931,171 @@ select {
   gap: 12px;
 }
 
+.workspace-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.workspace-tabs button {
+  border: 1px solid rgba(99, 102, 241, 0.16);
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: rgba(12, 18, 36, 0.45);
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 180ms var(--ease-smooth);
+}
+
+.workspace-tabs button.active {
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.36);
+}
+
+.workspace-tabs button:hover {
+  border-color: rgba(99, 102, 241, 0.34);
+}
+
+.workspace-benchmark-panel {
+  border: 1px solid var(--border-accent);
+  border-radius: var(--panel-radius);
+  background: rgba(10, 14, 30, 0.82);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.benchmark-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.benchmark-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.benchmark-toolbar input[type="range"] {
+  width: 100%;
+  accent-color: #22d3ee;
+}
+
+.benchmark-method-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.benchmark-method-toggle button {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(17, 24, 45, 0.6);
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.benchmark-method-toggle button.active {
+  border-color: rgba(34, 211, 238, 0.42);
+  color: #67e8f9;
+}
+
+.benchmark-chart-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.benchmark-chart-card {
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  border-radius: 12px;
+  background: rgba(6, 9, 22, 0.85);
+  padding: 10px;
+}
+
+.benchmark-chart-card h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.benchmark-chart-card svg {
+  width: 100%;
+  height: auto;
+}
+
+.benchmark-grid {
+  fill: rgba(7, 11, 26, 0.4);
+  stroke: rgba(148, 163, 184, 0.1);
+}
+
+.benchmark-axis-line {
+  stroke: rgba(148, 163, 184, 0.12);
+  stroke-width: 1;
+}
+
+.benchmark-line-cyan,
+.benchmark-line-orange,
+.benchmark-line-green {
+  fill: none;
+  stroke-width: 2.3;
+}
+
+.benchmark-line-cyan {
+  stroke: #22d3ee;
+}
+
+.benchmark-line-orange {
+  stroke: #f97316;
+}
+
+.benchmark-line-green {
+  stroke: #22c55e;
+}
+
+.benchmark-dot-primary {
+  fill: #22d3ee;
+}
+
+.benchmark-dot-secondary {
+  fill: #22c55e;
+}
+
+.benchmark-x-label {
+  font-size: 10px;
+  fill: #6b7280;
+  font-family: var(--font-code);
+}
+
+.benchmark-table-wrap {
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(10, 14, 30, 0.55);
+}
+
+.benchmark-table-wrap h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.benchmark-active-row td {
+  background: rgba(34, 211, 238, 0.08);
+}
+
 .workspace-dbbar {
   display: flex;
   gap: 8px;
@@ -1200,10 +1365,120 @@ select {
   border-color: rgba(99, 102, 241, 0.35);
 }
 
+.compare-results-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+  background: rgba(10, 16, 32, 0.45);
+}
+
+.compare-result-card {
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  border-radius: 12px;
+  background: rgba(17, 24, 45, 0.45);
+  color: var(--text-secondary);
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 180ms var(--ease-smooth);
+}
+
+.compare-result-card:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  transform: translateY(-1px);
+}
+
+.compare-result-card.active {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15);
+}
+
+.compare-result-card.approx.active {
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+.compare-result-card.exact.active {
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.2);
+}
+
+.compare-card-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.compare-result-card.approx .compare-card-label {
+  color: #34d399;
+}
+
+.compare-result-card.exact .compare-card-label {
+  color: #60a5fa;
+}
+
+.compare-result-card strong {
+  display: block;
+  font-size: 18px;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.compare-result-card p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.compare-card-metrics {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
 .table-shell {
   overflow: auto;
   min-height: 0;
   flex: 1;
+}
+
+.compare-table-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px;
+  min-height: 100%;
+}
+
+.compare-table-panel {
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  border-radius: 12px;
+  overflow: auto;
+  min-height: 0;
+  background: rgba(8, 12, 24, 0.55);
+}
+
+.compare-table-panel h4 {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.12);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: rgba(17, 24, 45, 0.45);
+}
+
+.compare-table-panel table {
+  min-width: 480px;
 }
 
 .result-placeholder {
@@ -1549,6 +1824,15 @@ tr:hover td {
 
   .workspace-dbbar {
     flex-wrap: wrap;
+  }
+
+  .benchmark-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-results-grid,
+  .compare-table-grid {
+    grid-template-columns: 1fr;
   }
 
   .result-metrics-strip {
