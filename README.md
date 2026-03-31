@@ -1,3 +1,7 @@
+*NOTE*
+
+sqlparse is the working branch. Whole code works in sqlparse
+
 # Approximate Query Engine
 
 Local-first desktop analytics app for approximate query processing.
