@@ -720,7 +720,11 @@ func (s *Server) executeParsedQuery(ctx context.Context, parsed *ParsedQuery, ta
 			if isStratifiedForGroupBy(source, parsed.GroupBy) {
 				querySQL = BuildApproxSQL(parsed, table)
 			} else {
-				querySQL = BuildApproxStratifiedSQL(parsed, source.RawTable, source.SampleRate)
+				if err := s.ensureStratifiedForGroupBy(source, parsed.GroupBy); err == nil {
+					querySQL = BuildApproxSQL(parsed, table)
+				} else {
+					querySQL = BuildApproxStratifiedSQL(parsed, source.RawTable, source.SampleRate)
+				}
 			}
 		} else {
 			querySQL = BuildApproxSQL(parsed, table)
@@ -1301,6 +1305,52 @@ func estimatedError(sampleRate float64, rawRows int64) float64 {
 		return 100
 	}
 	return math.Sqrt((1-sampleRate)/(sampleRate*float64(rawRows))) * 100
+}
+
+func (s *Server) ensureStratifiedForGroupBy(source *SourceConfig, groupBy []string) error {
+	if source == nil || len(groupBy) == 0 {
+		return nil
+	}
+
+	normalized := normalizeIdentifiers(groupBy)
+	if len(normalized) == 0 {
+		return nil
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	current, err := s.getSource(source.ID)
+	if err != nil {
+		return err
+	}
+	if isStratifiedForGroupBy(current, normalized) {
+		*source = *current
+		return nil
+	}
+
+	current.StratifyColumns = append([]string(nil), normalized...)
+	current.SamplingMethod = SamplingMethodStratified
+	if err := s.refreshSampleTable(current); err != nil {
+		return err
+	}
+
+	sampleCount, err := countRows(s.db, current.SampleTable)
+	if err != nil {
+		return err
+	}
+	current.SampleRowCount = sampleCount
+
+	if err := s.saveSource(current); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	s.sources[current.ID] = cloneSource(current)
+	s.mu.Unlock()
+
+	*source = *current
+	return nil
 }
 
 func isStratifiedForGroupBy(source *SourceConfig, groupBy []string) bool {
